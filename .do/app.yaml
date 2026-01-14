@@ -1,0 +1,93 @@
+name: eventconnect
+region: nyc
+
+# Componente 1: Backend API (.NET)
+services:
+  - name: api
+    github:
+      repo: tu-usuario/EventConnect
+      branch: main
+      deploy_on_push: true
+    source_dir: /
+    build_command: cd EventConnect.API && dotnet restore && dotnet publish -c Release -o ./publish
+    run_command: cd EventConnect.API/publish && dotnet EventConnect.API.dll
+    environment_slug: net-9-0
+    instance_count: 1
+    instance_size_slug: basic-xxs
+    http_port: 8080
+    health_check:
+      http_path: /health
+      initial_delay_seconds: 60
+      period_seconds: 10
+      timeout_seconds: 5
+      success_threshold: 1
+      failure_threshold: 3
+    envs:
+      - key: ASPNETCORE_ENVIRONMENT
+        value: Production
+      - key: ASPNETCORE_URLS
+        value: http://+:8080
+      - key: ConnectionStrings__EventConnectConnection
+        value: ${db.DATABASE_URL}
+        scope: RUN_TIME
+      - key: JwtSettings__Secret
+        value: ${JWT_SECRET}
+        scope: RUN_TIME
+      - key: JwtSettings__Issuer
+        value: EventConnect
+      - key: JwtSettings__Audience
+        value: EventConnectClients
+      - key: JwtSettings__TokenExpirationMinutes
+        value: "60"
+      - key: JwtSettings__RefreshTokenExpirationDays
+        value: "7"
+      - key: AllowedCorsOrigins__0
+        value: ${FRONTEND_URL}
+        scope: RUN_TIME
+    routes:
+      - path: /api
+
+  # Componente 2: Frontend (Next.js)
+  - name: frontend
+    github:
+      repo: tu-usuario/EventConnect
+      branch: main
+      deploy_on_push: true
+    source_dir: frontend/apps/host
+    build_command: corepack enable && corepack prepare pnpm@latest --activate && pnpm install && pnpm build
+    run_command: pnpm start
+    environment_slug: node-js
+    instance_count: 1
+    instance_size_slug: basic-xxs
+    http_port: 3000
+    health_check:
+      http_path: /
+      initial_delay_seconds: 60
+      period_seconds: 10
+      timeout_seconds: 5
+      success_threshold: 1
+      failure_threshold: 3
+    envs:
+      - key: NODE_ENV
+        value: production
+      - key: NEXT_PUBLIC_API_URL
+        value: ${api.PUBLIC_URL}
+        scope: RUN_TIME
+    routes:
+      - path: /
+
+# Base de datos PostgreSQL (si usas Managed Database de DigitalOcean)
+# Si ya tienes una base de datos externa, comenta esta sección
+# databases:
+#   - name: db
+#     engine: PG
+#     version: "15"
+#     production: false
+#     cluster_name: eventconnect-db
+#     db_name: db_eventconnect
+#     db_user: eventconnect_user
+
+# Variables globales (secrets)
+# Nota: Configura estos en el dashboard de DigitalOcean como App-Level Variables
+# JWT_SECRET: <genera uno seguro>
+# FRONTEND_URL: https://tu-dominio-frontend.com

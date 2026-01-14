@@ -1,4 +1,4 @@
-# 🚀 Guía de Despliegue en DigitalOcean - EventConnect Backend
+gi# 🚀 Guía de Despliegue en DigitalOcean - EventConnect Backend
 
 Esta guía te ayudará a desplegar el backend de EventConnect en DigitalOcean usando App Platform.
 
@@ -20,6 +20,20 @@ VM completa donde instalas todo manualmente.
 ---
 
 ## 🌊 Opción 1: App Platform (Recomendado)
+
+### ⚠️ IMPORTANTE: Configuración de Múltiples Componentes
+
+**Sí, es posible tener frontend y backend en la misma app.** DigitalOcean App Platform soporta múltiples servicios (components) en una sola aplicación.
+
+He creado un archivo `.do/app.yaml` en la raíz del proyecto que configura ambos componentes. Si DigitalOcean no detecta automáticamente los componentes, puedes:
+
+1. **Opción A**: Usar el archivo `.do/app.yaml` (recomendado)
+   - DigitalOcean detectará automáticamente este archivo
+   - Asegúrate de actualizar el `repo` y `branch` en el archivo
+
+2. **Opción B**: Configurar manualmente en el dashboard
+   - Agrega el backend como primer componente
+   - Luego agrega el frontend como segundo componente
 
 ### Paso 1: Crear Base de Datos PostgreSQL
 
