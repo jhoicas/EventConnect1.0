@@ -132,3 +132,8 @@ yarn-error.log*
 ## Sensitive information
 appsettings.Production.json
 appsettings.Staging.json
+
+## Node.js files in .NET projects (should not be here)
+EventConnect.API/package.json
+EventConnect.API/pnpm-lock.yaml
+EventConnect.API/node_modules/
