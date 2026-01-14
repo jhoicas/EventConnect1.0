@@ -72,8 +72,8 @@ public class ConfiguracionSistemaRepository : RepositoryBase<ConfiguracionSistem
             INSERT INTO Configuracion_Sistema 
             (Empresa_Id, Clave, Valor, Descripcion, Tipo_Dato, Es_Global, Fecha_Actualizacion)
             VALUES 
-            (@Empresa_Id, @Clave, @Valor, @Descripcion, @Tipo_Dato, @Es_Global, @Fecha_Actualizacion);
-            SELECT LAST_INSERT_ID();";
+            (@Empresa_Id, @Clave, @Valor, @Descripcion, @Tipo_Dato, @Es_Global, @Fecha_Actualizacion)
+            RETURNING Id;";
         
         configuracion.Fecha_Actualizacion = DateTime.Now;
         return await connection.ExecuteScalarAsync<int>(query, configuracion);

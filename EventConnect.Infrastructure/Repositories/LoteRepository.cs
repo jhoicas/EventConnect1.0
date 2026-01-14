@@ -1,6 +1,6 @@
 ﻿using Dapper;
 using EventConnect.Domain.Entities;
-using MySqlConnector;
+using Npgsql;
 
 namespace EventConnect.Infrastructure.Repositories;
 
@@ -10,14 +10,14 @@ public class LoteRepository : RepositoryBase<Lote>
 
     public async Task<IEnumerable<Lote>> GetByProductoIdAsync(int productoId)
     {
-        using var connection = new MySqlConnection(_connectionString);
+        using var connection = new NpgsqlConnection(_connectionString);
         var query = "SELECT * FROM Lote WHERE Producto_Id = @ProductoId ORDER BY Fecha_Vencimiento";
         return await connection.QueryAsync<Lote>(query, new { ProductoId = productoId });
     }
 
     public async Task<IEnumerable<Lote>> GetLotesVencidosAsync()
     {
-        using var connection = new MySqlConnection(_connectionString);
+        using var connection = new NpgsqlConnection(_connectionString);
         var query = @"
             SELECT * FROM Lote 
             WHERE Fecha_Vencimiento IS NOT NULL 
@@ -29,7 +29,7 @@ public class LoteRepository : RepositoryBase<Lote>
 
     public async Task<IEnumerable<Lote>> GetLotesPorVencerAsync(int diasAnticipacion)
     {
-        using var connection = new MySqlConnection(_connectionString);
+        using var connection = new NpgsqlConnection(_connectionString);
         var query = @"
             SELECT * FROM Lote 
             WHERE Fecha_Vencimiento IS NOT NULL 

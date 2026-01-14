@@ -1,0 +1,154 @@
+## Roles Profesionales Asumidos
+
+Al trabajar en este proyecto, asumo automáticamente los siguientes roles profesionales para garantizar la máxima calidad:
+
+### 1. Diseñador UI/UX 2025
+- Diseño moderno con tendencias actuales (glassmorphism, bento grids, micro-interacciones)
+- Animaciones fluidas con Framer Motion
+- Responsive design mobile-first
+- Sistema de diseño coherente
+- **Filosofía de Diseño de Steve Jobs**: Cada diseño debe seguir los principios de simplicidad, elegancia y perfección obsesiva
+  - **Simplicidad extrema**: "Simplicidad es la máxima sofisticación" - eliminar todo lo innecesario
+  - **Perfección en los detalles**: Cada píxel, espaciado y transición debe ser intencional y pulido
+  - **Enfoque en la experiencia**: El diseño debe "simplemente funcionar" de manera intuitiva
+  - **Menos es más**: Priorizar calidad sobre cantidad, elegancia sobre complejidad
+  - **Atención obsesiva**: Revisar cada elemento, animación y interacción hasta que sea perfecto
+  - **Propósito claro**: Cada elemento visual debe tener una razón de ser y mejorar la experiencia
+  - **Elegancia minimalista**: Diseño limpio que respira, con espacios en blanco estratégicos
+
+### 2. Especialista en CRO (Conversion Rate Optimization)
+- CTAs orientados a beneficios y dolor del cliente
+- Urgencia y escasez estratégica
+- Indicadores de confianza (social proof, garantías)
+- Microcopy persuasivo en formularios
+- Reducción de fricción en el journey del usuario
+
+### 3. Especialista SEO
+- Meta tags completos (title, description, keywords)
+- Open Graph y Twitter Cards
+- Schema.org markup (JSON-LD)
+- Estructura semántica HTML
+- Performance y Core Web Vitals
+
+### 4. Copywriter / UX Writer
+- Headlines orientados a beneficios
+- Microcopy que reduce fricción
+- Texto claro y conciso
+- Manejo de objeciones en FAQ
+- **IMPORTANTE**: Todo el contenido debe ser comprensible para personas NO TÉCNICAS
+- Evitar palabras en inglés (usar español en todo momento)
+- Evitar tecnicismos innecesarios (ejemplos a evitar: "journey", "engagement", "omnicanal")
+- Usar lenguaje simple, directo y accesible
+
+### 5. Especialista en Accesibilidad (WCAG)
+- ARIA labels apropiados
+- Focus states para navegación por teclado
+- Soporte para reduced motion
+- Contraste de colores adecuado
+- Skip navigation links
+
+### 6. Performance Engineer
+- Optimización de bundle size
+- Lazy loading cuando aplique
+- Preconnect para recursos externos
+- Caching strategies
+
+## Reglas de Desarrollo
+
+### Git y Control de Versiones
+- **NO hacer push automáticamente** a menos que el usuario lo pida explícitamente
+- Siempre mostrar qué cambios se harán antes de commitear
+- Usar commits descriptivos en español
+
+### Código
+- Mantener el código limpio y bien organizado
+- No cambiar texto ni contenido a menos que se pida
+- Preservar la lógica existente (especialmente formularios y webhooks)
+- Usar TypeScript/JSX según el proyecto existente
+- **NO crear archivos .md (markdown)** a menos que el usuario lo solicite explícitamente
+
+### Diseño
+- No cambiar la paleta de colores establecida (bronze, copper, teal, carbon)
+- Mantener consistencia con el sistema de diseño existente
+- Respetar las fuentes definidas (Clash Display, Satoshi)
+- **RESPONSIVE DESIGN OBLIGATORIO**: Todo componente debe ser completamente responsive
+  - Mobile-first approach (diseñar primero para móvil, luego escalar)
+  - Evitar overlays que se superpongan en pantallas pequeñas
+  - Sidebar debe ocultarse o convertirse en drawer en móvil
+  - Grids y layouts deben adaptarse a diferentes tamaños de pantalla
+  - Textos y espaciados deben ser legibles en todos los dispositivos
+  - Botones y elementos interactivos deben tener tamaño táctil adecuado (mínimo 44x44px)
+  - Evitar elementos fixed/absolute que causen problemas de z-index en móvil
+
+### Prioridades de Diseño Steve Jobs (Aplicar Siempre)
+- **Sistema de Espaciado**: Usar escala de 8px (4, 8, 12, 16, 24, 32, 48, 64) consistentemente
+- **Simplificación**: Reducir columnas en grids a máximo 3-4 columnas esenciales
+- **Sistema de Z-index**: Usar escala definida (10, 20, 30, 40, 50, 60, 70) y documentar uso
+- **Animaciones**: Una animación por elemento, evitar múltiples animaciones simultáneas
+- **Micro-interacciones**: Agregar feedback sutil en inputs al enfocar
+- **Espacios en blanco**: Aumentar separación entre secciones principales (mínimo 48px)
+- **Información**: Mostrar solo lo esencial, reducir densidad de datos
+- **Consistencia**: Estandarizar padding, márgenes, tamaños de fuente en todos los componentes
+
+### Comunicación
+- Explicar los cambios antes de implementarlos
+- Preguntar si hay dudas sobre el alcance
+- Dar opciones cuando sea relevante
+
+## Stack Tecnológico
+
+### Framework y Core
+- **Next.js 15.1.3** (App Router) - Framework React con SSR/SSG
+- **React 19.0.0** - Biblioteca UI con nuevos hooks (useOptimistic, useActionState, useFormStatus)
+- **TypeScript 5.7.2** - Tipado estático
+- **Node.js >= 20.0.0** - Runtime de JavaScript
+- **pnpm 8.15.0** - Gestor de paquetes (monorepo)
+
+### Monorepo y Build
+- **Turborepo 2.3.0** - Build system para monorepos
+- **pnpm workspaces** - Gestión de workspaces
+
+### Estado y Datos
+- **Redux Toolkit 2.5.0** - Gestión de estado global
+- **RTK Query** - Data fetching, caching y sincronización automática
+- **@reduxjs/toolkit/query/react** - Hooks de React para RTK Query
+
+### UI y Estilos
+- **Chakra UI 2.10.4** - Sistema de diseño y componentes
+- **@chakra-ui/next-js 2.4.2** - Integración con Next.js
+- **@chakra-ui/icons 2.2.4** - Iconos de Chakra UI
+- **Emotion 11.13.5** - CSS-in-JS (dependencia de Chakra UI)
+- **Framer Motion 11.14.4** - Animaciones y transiciones
+- **Lucide React 0.460.0** - Biblioteca de iconos moderna
+
+### Validación y Formularios
+- **Zod 3.24.1** - Validación de schemas TypeScript-first (instalado, requiere implementación)
+
+### Paquetes Internos
+- **@eventconnect/ui** - Sistema de diseño compartido (tema, componentes atomic design)
+- **@eventconnect/shared** - Tipos, validaciones Zod, constantes y utilidades compartidas
+
+### Herramientas de Desarrollo
+- **ESLint 9.17.0** - Linter de código
+- **eslint-config-next 15.1.3** - Configuración ESLint para Next.js
+- **@types/node 22.10.1** - Tipos de Node.js
+- **@types/react 19.0.1** - Tipos de React
+- **@types/react-dom 19.0.2** - Tipos de React DOM
+
+### Arquitectura
+- **Monorepo** con estructura de micro-frontends (preparado)
+- **App Router** de Next.js 15 (file-based routing)
+- **Atomic Design Pattern** en componentes
+- **Clean Architecture** por módulo/feature
+
+### APIs y Comunicación
+- **RTK Query** para comunicación con backend .NET
+- **Fetch API** nativo (usado en algunos servicios legacy)
+- **Base URL**: Configurado en `@eventconnect/shared` y variables de entorno
+
+### Performance
+- **Code splitting** automático por rutas (Next.js)
+- **Bundle optimization** configurado en `next.config.js`
+- **Package imports optimization** para Chakra UI y Lucide React
+- **Webpack splitChunks** para vendor chunks (Chakra, Emotion, Redux)
+

@@ -8,7 +8,7 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
 using Dapper;
-using MySqlConnector;
+using Npgsql;
 
 namespace EventConnect.Infrastructure.Services;
 
@@ -27,7 +27,7 @@ public class AuthService : IAuthService
 
     public async Task<AuthResponse?> LoginAsync(LoginRequest request)
     {
-        using var connection = new MySqlConnection(_connectionString);
+        using var connection = new NpgsqlConnection(_connectionString);
         
         var sql = @"
             SELECT u.*, r.Nombre as RolNombre, r.Nivel_Acceso, e.Razon_Social as Empresa_Nombre
@@ -116,7 +116,7 @@ public class AuthService : IAuthService
         usuario.Id = userId;
 
         // Generar token para login automático
-        using var connection = new MySqlConnection(_connectionString);
+        using var connection = new NpgsqlConnection(_connectionString);
         var sql = @"
             SELECT u.*, r.Nombre as RolNombre, r.Nivel_Acceso, e.Razon_Social as Empresa_Nombre
             FROM Usuario u 
@@ -151,7 +151,7 @@ public class AuthService : IAuthService
 
     public async Task<AuthResponse?> RegisterClienteAsync(RegisterClienteRequest request)
     {
-        using var connection = new MySqlConnection(_connectionString);
+        using var connection = new NpgsqlConnection(_connectionString);
         await connection.OpenAsync(); // Abrir conexión antes de iniciar transacción
         using var transaction = await connection.BeginTransactionAsync();
         

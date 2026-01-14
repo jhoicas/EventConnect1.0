@@ -22,9 +22,13 @@ import {
   Grid,
   GridItem,
 } from '@chakra-ui/react';
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
+import { useForm, Controller } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
 import { useCreateMantenimientoMutation, useUpdateMantenimientoMutation, type Mantenimiento } from '../store/api/mantenimientoApi';
 import { useGetActivosQuery } from '../store/api/activoApi';
+import { mantenimientoSchema, type MantenimientoFormData } from '../lib/validations/mantenimientoSchema';
+import { useColorModeLocal } from '../hooks/useColorModeLocal';
 
 interface MantenimientoModalProps {
   isOpen: boolean;
@@ -33,114 +37,104 @@ interface MantenimientoModalProps {
 }
 
 export const MantenimientoModal = ({ isOpen, onClose, mantenimiento }: MantenimientoModalProps) => {
-  const [colorMode, setColorMode] = useState<'light' | 'dark' | 'blue'>('light');
   const toast = useToast();
-  
   const { data: activos = [] } = useGetActivosQuery();
   
-  const [formData, setFormData] = useState({
-    activo_Id: 0,
-    tipo_Mantenimiento: 'Preventivo',
-    fecha_Programada: '',
-    fecha_Realizada: '',
-    descripcion: '',
-    proveedor_Servicio: '',
-    costo: 0,
-    observaciones: '',
-  });
-
-  const [errors, setErrors] = useState<Record<string, string>>({});
-
   const [createMantenimiento, { isLoading: isCreating }] = useCreateMantenimientoMutation();
   const [updateMantenimiento, { isLoading: isUpdating }] = useUpdateMantenimientoMutation();
 
   const isEdit = !!mantenimiento;
   const isLoading = isCreating || isUpdating;
 
+  const {
+    register,
+    handleSubmit,
+    control,
+    formState: { errors },
+    reset,
+  } = useForm<MantenimientoFormData>({
+    resolver: zodResolver(mantenimientoSchema),
+    defaultValues: {
+      activo_Id: 0,
+      tipo_Mantenimiento: 'Preventivo',
+      fecha_Programada: '',
+      fecha_Realizada: '',
+      descripcion: '',
+      proveedor_Servicio: '',
+      costo: 0,
+      observaciones: '',
+    },
+  });
+
+  // Resetear formulario cuando cambia el mantenimiento o se abre/cierra el modal
   useEffect(() => {
-    const stored = localStorage.getItem('chakra-ui-color-mode');
-    if (stored === 'light' || stored === 'dark' || stored === 'blue') {
-      setColorMode(stored);
+    if (isOpen) {
+      if (mantenimiento) {
+        reset({
+          activo_Id: mantenimiento.activo_Id,
+          tipo_Mantenimiento: mantenimiento.tipo_Mantenimiento,
+          fecha_Programada: mantenimiento.fecha_Programada?.split('T')[0] || '',
+          fecha_Realizada: mantenimiento.fecha_Realizada?.split('T')[0] || '',
+          descripcion: mantenimiento.descripcion || '',
+          proveedor_Servicio: mantenimiento.proveedor_Servicio || '',
+          costo: mantenimiento.costo || 0,
+          observaciones: mantenimiento.observaciones || '',
+        });
+      } else {
+        reset({
+          activo_Id: 0,
+          tipo_Mantenimiento: 'Preventivo',
+          fecha_Programada: '',
+          fecha_Realizada: '',
+          descripcion: '',
+          proveedor_Servicio: '',
+          costo: 0,
+          observaciones: '',
+        });
+      }
     }
-  }, []);
+  }, [mantenimiento, isOpen, reset]);
 
-  useEffect(() => {
-    if (mantenimiento) {
-      setFormData({
-        activo_Id: mantenimiento.activo_Id,
-        tipo_Mantenimiento: mantenimiento.tipo_Mantenimiento,
-        fecha_Programada: mantenimiento.fecha_Programada?.split('T')[0] || '',
-        fecha_Realizada: mantenimiento.fecha_Realizada?.split('T')[0] || '',
-        descripcion: mantenimiento.descripcion || '',
-        proveedor_Servicio: mantenimiento.proveedor_Servicio || '',
-        costo: mantenimiento.costo || 0,
-        observaciones: mantenimiento.observaciones || '',
-      });
-    } else {
-      setFormData({
-        activo_Id: 0,
-        tipo_Mantenimiento: 'Preventivo',
-        fecha_Programada: '',
-        fecha_Realizada: '',
-        descripcion: '',
-        proveedor_Servicio: '',
-        costo: 0,
-        observaciones: '',
-      });
-    }
-    setErrors({});
-  }, [mantenimiento, isOpen]);
+  // Obtener color mode y colores del hook personalizado
+  const { bgColor, inputBg, borderColor } = useColorModeLocal();
 
-  const validate = () => {
-    const newErrors: Record<string, string> = {};
-    
-    if (!formData.activo_Id) newErrors.activo_Id = 'Debe seleccionar un activo';
-    if (!formData.tipo_Mantenimiento) newErrors.tipo_Mantenimiento = 'Debe seleccionar un tipo';
-    
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!validate()) return;
-
+  const onSubmit = async (data: MantenimientoFormData) => {
     try {
       if (isEdit) {
         await updateMantenimiento({
           id: mantenimiento.id,
-          activo_Id: formData.activo_Id,
-          tipo_Mantenimiento: formData.tipo_Mantenimiento,
-          fecha_Programada: formData.fecha_Programada || undefined,
-          fecha_Realizada: formData.fecha_Realizada || undefined,
-          descripcion: formData.descripcion || undefined,
-          proveedor_Servicio: formData.proveedor_Servicio || undefined,
-          costo: formData.costo || undefined,
+          activo_Id: data.activo_Id,
+          tipo_Mantenimiento: data.tipo_Mantenimiento,
+          fecha_Programada: data.fecha_Programada || undefined,
+          fecha_Realizada: data.fecha_Realizada || undefined,
+          descripcion: data.descripcion || undefined,
+          proveedor_Servicio: data.proveedor_Servicio || undefined,
+          costo: data.costo || undefined,
           estado: mantenimiento.estado,
-          observaciones: formData.observaciones || undefined,
+          observaciones: data.observaciones || undefined,
         }).unwrap();
         
         toast({
           title: 'Mantenimiento actualizado',
-          description: `El mantenimiento fue actualizado exitosamente.`,
+          description: 'El mantenimiento fue actualizado exitosamente.',
           status: 'success',
           duration: 3000,
           isClosable: true,
         });
       } else {
         await createMantenimiento({
-          activo_Id: formData.activo_Id,
-          tipo_Mantenimiento: formData.tipo_Mantenimiento,
-          fecha_Programada: formData.fecha_Programada || undefined,
-          descripcion: formData.descripcion || undefined,
-          proveedor_Servicio: formData.proveedor_Servicio || undefined,
-          costo: formData.costo || undefined,
-          observaciones: formData.observaciones || undefined,
+          activo_Id: data.activo_Id,
+          tipo_Mantenimiento: data.tipo_Mantenimiento,
+          fecha_Programada: data.fecha_Programada || undefined,
+          descripcion: data.descripcion || undefined,
+          proveedor_Servicio: data.proveedor_Servicio || undefined,
+          costo: data.costo || undefined,
+          observaciones: data.observaciones || undefined,
         }).unwrap();
         
         toast({
           title: 'Mantenimiento creado',
-          description: `El mantenimiento fue programado exitosamente.`,
+          description: 'El mantenimiento fue programado exitosamente.',
           status: 'success',
           duration: 3000,
           isClosable: true,
@@ -149,9 +143,10 @@ export const MantenimientoModal = ({ isOpen, onClose, mantenimiento }: Mantenimi
       
       handleClose();
     } catch (error: any) {
+      const errorMessage = error?.data?.message || error?.message || 'Ocurrió un error al guardar el mantenimiento';
       toast({
         title: 'Error',
-        description: error?.data?.message || 'Ocurrió un error al guardar el mantenimiento',
+        description: errorMessage,
         status: 'error',
         duration: 5000,
         isClosable: true,
@@ -160,18 +155,15 @@ export const MantenimientoModal = ({ isOpen, onClose, mantenimiento }: Mantenimi
   };
 
   const handleClose = () => {
+    reset();
     onClose();
   };
-
-  const bgColor = colorMode === 'dark' ? '#1a2035' : colorMode === 'blue' ? '#192734' : '#ffffff';
-  const inputBg = colorMode === 'dark' ? '#242b3d' : colorMode === 'blue' ? '#1e3140' : '#f5f6f8';
-  const borderColor = colorMode === 'dark' ? '#2d3548' : colorMode === 'blue' ? '#2a4255' : '#e2e8f0';
 
   return (
     <Modal isOpen={isOpen} onClose={handleClose} size="2xl">
       <ModalOverlay bg="blackAlpha.300" backdropFilter="blur(10px)" />
       <ModalContent bg={bgColor} borderColor={borderColor} borderWidth="1px">
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit(onSubmit)}>
           <ModalHeader>{isEdit ? 'Editar Mantenimiento' : 'Nuevo Mantenimiento'}</ModalHeader>
           <ModalCloseButton />
           
@@ -182,8 +174,7 @@ export const MantenimientoModal = ({ isOpen, onClose, mantenimiento }: Mantenimi
                   <FormControl isRequired isInvalid={!!errors.activo_Id}>
                     <FormLabel>Activo</FormLabel>
                     <Select
-                      value={formData.activo_Id}
-                      onChange={(e) => setFormData({ ...formData, activo_Id: Number(e.target.value) })}
+                      {...register('activo_Id', { valueAsNumber: true })}
                       bg={inputBg}
                       borderColor={borderColor}
                       placeholder="Seleccione un activo"
@@ -194,7 +185,7 @@ export const MantenimientoModal = ({ isOpen, onClose, mantenimiento }: Mantenimi
                         </option>
                       ))}
                     </Select>
-                    <FormErrorMessage>{errors.activo_Id}</FormErrorMessage>
+                    <FormErrorMessage>{errors.activo_Id?.message}</FormErrorMessage>
                   </FormControl>
                 </GridItem>
 
@@ -202,8 +193,7 @@ export const MantenimientoModal = ({ isOpen, onClose, mantenimiento }: Mantenimi
                   <FormControl isRequired isInvalid={!!errors.tipo_Mantenimiento}>
                     <FormLabel>Tipo de Mantenimiento</FormLabel>
                     <Select
-                      value={formData.tipo_Mantenimiento}
-                      onChange={(e) => setFormData({ ...formData, tipo_Mantenimiento: e.target.value })}
+                      {...register('tipo_Mantenimiento')}
                       bg={inputBg}
                       borderColor={borderColor}
                     >
@@ -211,92 +201,99 @@ export const MantenimientoModal = ({ isOpen, onClose, mantenimiento }: Mantenimi
                       <option value="Correctivo">Correctivo</option>
                       <option value="Predictivo">Predictivo</option>
                     </Select>
-                    <FormErrorMessage>{errors.tipo_Mantenimiento}</FormErrorMessage>
+                    <FormErrorMessage>{errors.tipo_Mantenimiento?.message}</FormErrorMessage>
                   </FormControl>
                 </GridItem>
               </Grid>
 
               <Grid templateColumns="repeat(2, 1fr)" gap={4} w="full">
                 <GridItem>
-                  <FormControl>
+                  <FormControl isInvalid={!!errors.fecha_Programada}>
                     <FormLabel>Fecha Programada</FormLabel>
                     <Input
                       type="date"
-                      value={formData.fecha_Programada}
-                      onChange={(e) => setFormData({ ...formData, fecha_Programada: e.target.value })}
+                      {...register('fecha_Programada')}
                       bg={inputBg}
                       borderColor={borderColor}
                     />
+                    <FormErrorMessage>{errors.fecha_Programada?.message}</FormErrorMessage>
                   </FormControl>
                 </GridItem>
 
                 {isEdit && (
                   <GridItem>
-                    <FormControl>
+                    <FormControl isInvalid={!!errors.fecha_Realizada}>
                       <FormLabel>Fecha Realizada</FormLabel>
                       <Input
                         type="date"
-                        value={formData.fecha_Realizada}
-                        onChange={(e) => setFormData({ ...formData, fecha_Realizada: e.target.value })}
+                        {...register('fecha_Realizada')}
                         bg={inputBg}
                         borderColor={borderColor}
                       />
+                      <FormErrorMessage>{errors.fecha_Realizada?.message}</FormErrorMessage>
                     </FormControl>
                   </GridItem>
                 )}
               </Grid>
 
-              <FormControl>
+              <FormControl isInvalid={!!errors.descripcion}>
                 <FormLabel>Descripción</FormLabel>
                 <Textarea
-                  value={formData.descripcion}
-                  onChange={(e) => setFormData({ ...formData, descripcion: e.target.value })}
+                  {...register('descripcion')}
                   placeholder="Detalle del mantenimiento a realizar"
                   bg={inputBg}
                   borderColor={borderColor}
                   rows={3}
                 />
+                <FormErrorMessage>{errors.descripcion?.message}</FormErrorMessage>
               </FormControl>
 
               <Grid templateColumns="repeat(2, 1fr)" gap={4} w="full">
                 <GridItem>
-                  <FormControl>
+                  <FormControl isInvalid={!!errors.proveedor_Servicio}>
                     <FormLabel>Proveedor de Servicio</FormLabel>
                     <Input
-                      value={formData.proveedor_Servicio}
-                      onChange={(e) => setFormData({ ...formData, proveedor_Servicio: e.target.value })}
+                      {...register('proveedor_Servicio')}
                       placeholder="Empresa o técnico"
                       bg={inputBg}
                       borderColor={borderColor}
                     />
+                    <FormErrorMessage>{errors.proveedor_Servicio?.message}</FormErrorMessage>
                   </FormControl>
                 </GridItem>
 
                 <GridItem>
-                  <FormControl>
+                  <FormControl isInvalid={!!errors.costo}>
                     <FormLabel>Costo ($)</FormLabel>
-                    <NumberInput
-                      value={formData.costo}
-                      onChange={(_, val) => setFormData({ ...formData, costo: val })}
-                      min={0}
-                      precision={2}
-                    >
-                      <NumberInputField bg={inputBg} borderColor={borderColor} />
-                    </NumberInput>
+                    <Controller
+                      name="costo"
+                      control={control}
+                      render={({ field: { onChange, value } }) => (
+                        <NumberInput
+                          value={value}
+                          onChange={(_, val) => onChange(val)}
+                          min={0}
+                          precision={2}
+                        >
+                          <NumberInputField bg={inputBg} borderColor={borderColor} />
+                        </NumberInput>
+                      )}
+                    />
+                    <FormErrorMessage>{errors.costo?.message}</FormErrorMessage>
                   </FormControl>
                 </GridItem>
               </Grid>
 
-              <FormControl>
+              <FormControl isInvalid={!!errors.observaciones}>
                 <FormLabel>Observaciones</FormLabel>
                 <Textarea
-                  value={formData.observaciones}
-                  onChange={(e) => setFormData({ ...formData, observaciones: e.target.value })}
+                  {...register('observaciones')}
                   placeholder="Notas adicionales"
                   bg={inputBg}
                   borderColor={borderColor}
                   rows={2}
                 />
+                <FormErrorMessage>{errors.observaciones?.message}</FormErrorMessage>
               </FormControl>
             </VStack>
           </ModalBody>

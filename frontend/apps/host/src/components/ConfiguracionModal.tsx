@@ -18,7 +18,6 @@ import {
   VStack,
   useToast,
   FormErrorMessage,
-  useColorMode,
   HStack,
   Text,
 } from '@chakra-ui/react';
@@ -27,7 +26,11 @@ import {
   useUpdateConfiguracionMutation,
   type ConfiguracionSistema,
 } from '@/store/api/configuracionApi';
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { configuracionSchema, type ConfiguracionFormData } from '../lib/validations/configuracionSchema';
+import { useColorModeLocal } from '../hooks/useColorModeLocal';
 
 interface ConfiguracionModalProps {
   isOpen: boolean;
@@ -36,73 +39,70 @@ interface ConfiguracionModalProps {
 }
 
 export function ConfiguracionModal({ isOpen, onClose, configuracion }: ConfiguracionModalProps) {
-  const { colorMode } = useColorMode();
-  const [localColorMode, setLocalColorMode] = useState<'light' | 'dark' | 'blue'>('light');
   const toast = useToast();
   const [createConfiguracion, { isLoading: isCreating }] = useCreateConfiguracionMutation();
   const [updateConfiguracion, { isLoading: isUpdating }] = useUpdateConfiguracionMutation();
 
-  const [clave, setClave] = useState('');
-  const [valor, setValor] = useState('');
-  const [descripcion, setDescripcion] = useState('');
-  const [tipoDato, setTipoDato] = useState('string');
-  const [esGlobal, setEsGlobal] = useState(false);
-  const [errors, setErrors] = useState({ clave: '', tipoDato: '' });
+  const isEdit = !!configuracion;
+  const isLoading = isCreating || isUpdating;
+
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+    reset,
+    watch,
+    setValue,
+  } = useForm<ConfiguracionFormData>({
+    resolver: zodResolver(configuracionSchema),
+    defaultValues: {
+      clave: '',
+      tipo_Dato: 'string',
+      valor: '',
+      descripcion: '',
+      es_Global: false,
+    },
+  });
+
+  const tipoDato = watch('tipo_Dato');
+  const esGlobal = watch('es_Global');
+
+  // Obtener color mode y colores del hook personalizado
+  const { colorMode, bgColor: cardBg, inputBg, borderColor } = useColorModeLocal();
 
   useEffect(() => {
-    const stored = localStorage.getItem('chakra-ui-color-mode');
-    if (stored === 'light' || stored === 'dark' || stored === 'blue') {
-      setLocalColorMode(stored);
+    if (isOpen) {
+      if (configuracion) {
+        reset({
+          clave: configuracion.clave,
+          valor: configuracion.valor || '',
+          descripcion: configuracion.descripcion || '',
+          tipo_Dato: configuracion.tipo_Dato,
+          es_Global: configuracion.es_Global,
+        });
+      } else {
+        reset({
+          clave: '',
+          valor: '',
+          descripcion: '',
+          tipo_Dato: 'string',
+          es_Global: false,
+        });
+      }
     }
-  }, [colorMode]);
+  }, [configuracion, isOpen, reset]);
 
-  useEffect(() => {
-    if (configuracion) {
-      setClave(configuracion.clave);
-      setValor(configuracion.valor || '');
-      setDescripcion(configuracion.descripcion || '');
-      setTipoDato(configuracion.tipo_Dato);
-      setEsGlobal(configuracion.es_Global);
-    } else {
-      setClave('');
-      setValor('');
-      setDescripcion('');
-      setTipoDato('string');
-      setEsGlobal(false);
-    }
-    setErrors({ clave: '', tipoDato: '' });
-  }, [configuracion, isOpen]);
-
-  const cardBg = localColorMode === 'dark' ? '#1a2035' : localColorMode === 'blue' ? '#192734' : '#ffffff';
-
-  const validate = () => {
-    const newErrors = { clave: '', tipoDato: '' };
-    let isValid = true;
-
-    if (!clave.trim()) {
-      newErrors.clave = 'La clave es requerida';
-      isValid = false;
-    }
-
-    setErrors(newErrors);
-    return isValid;
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!validate()) return;
-
+  const onSubmit = async (data: ConfiguracionFormData) => {
     try {
       const payload = {
-        clave: clave.trim(),
-        valor: valor.trim(),
-        descripcion: descripcion.trim(),
-        tipo_Dato: tipoDato,
-        es_Global: esGlobal,
+        clave: data.clave.trim(),
+        valor: data.valor?.trim() || undefined,
+        descripcion: data.descripcion?.trim() || undefined,
+        tipo_Dato: data.tipo_Dato,
+        es_Global: data.es_Global,
       };
 
-      if (configuracion) {
+      if (isEdit) {
         await updateConfiguracion({
           id: configuracion.id,
           body: payload,
@@ -110,7 +110,7 @@ export function ConfiguracionModal({ isOpen, onClose, configuracion }: Configura
 
         toast({
           title: 'Configuración actualizada',
-          description: `La configuración "${clave}" fue actualizada exitosamente.`,
+          description: `La configuración "${data.clave}" fue actualizada exitosamente.`,
           status: 'success',
           duration: 3000,
           isClosable: true,
@@ -120,7 +120,7 @@ export function ConfiguracionModal({ isOpen, onClose, configuracion }: Configura
 
         toast({
           title: 'Configuración creada',
-          description: `La configuración "${clave}" fue creada exitosamente.`,
+          description: `La configuración "${data.clave}" fue creada exitosamente.`,
           status: 'success',
           duration: 3000,
           isClosable: true,
@@ -129,9 +129,10 @@ export function ConfiguracionModal({ isOpen, onClose, configuracion }: Configura
 
       handleClose();
     } catch (error: any) {
+      const errorMessage = error?.data?.message || error?.message || 'Ocurrió un error al guardar la configuración';
       toast({
         title: 'Error',
-        description: error?.data?.message || 'Ocurrió un error al guardar la configuración',
+        description: errorMessage,
         status: 'error',
         duration: 5000,
         isClosable: true,
@@ -140,12 +141,7 @@ export function ConfiguracionModal({ isOpen, onClose, configuracion }: Configura
   };
 
   const handleClose = () => {
-    setClave('');
-    setValor('');
-    setDescripcion('');
-    setTipoDato('string');
-    setEsGlobal(false);
-    setErrors({ clave: '', tipoDato: '' });
+    reset();
     onClose();
   };
 
@@ -153,7 +149,7 @@ export function ConfiguracionModal({ isOpen, onClose, configuracion }: Configura
     <Modal isOpen={isOpen} onClose={handleClose} size="lg">
       <ModalOverlay />
       <ModalContent bg={cardBg}>
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit(onSubmit)}>
           <ModalHeader>
             {configuracion ? 'Editar Configuración' : 'Nueva Configuración'}
           </ModalHeader>
@@ -164,67 +160,83 @@ export function ConfiguracionModal({ isOpen, onClose, configuracion }: Configura
               <FormControl isInvalid={!!errors.clave} isRequired>
                 <FormLabel>Clave</FormLabel>
                 <Input
-                  value={clave}
-                  onChange={(e) => setClave(e.target.value)}
+                  {...register('clave')}
                   placeholder="NOMBRE_CONFIGURACION"
-                  isDisabled={!!configuracion}
+                  isDisabled={isEdit}
+                  bg={inputBg}
+                  borderColor={borderColor}
                 />
-                <FormErrorMessage>{errors.clave}</FormErrorMessage>
+                <FormErrorMessage>{errors.clave?.message}</FormErrorMessage>
               </FormControl>
 
-              <FormControl isRequired>
+              <FormControl isRequired isInvalid={!!errors.tipo_Dato}>
                 <FormLabel>Tipo de Dato</FormLabel>
-                <Select value={tipoDato} onChange={(e) => setTipoDato(e.target.value)}>
+                <Select
+                  {...register('tipo_Dato')}
+                  bg={inputBg}
+                  borderColor={borderColor}
+                >
                   <option value="string">Texto (string)</option>
                   <option value="int">Número Entero (int)</option>
                   <option value="bool">Booleano (bool)</option>
                   <option value="json">JSON</option>
                 </Select>
+                <FormErrorMessage>{errors.tipo_Dato?.message}</FormErrorMessage>
               </FormControl>
 
-              <FormControl>
+              <FormControl isInvalid={!!errors.valor}>
                 <FormLabel>Valor</FormLabel>
                 {tipoDato === 'bool' ? (
-                  <Select value={valor} onChange={(e) => setValor(e.target.value)}>
+                  <Select
+                    {...register('valor')}
+                    bg={inputBg}
+                    borderColor={borderColor}
+                  >
                     <option value="true">Verdadero</option>
                     <option value="false">Falso</option>
                   </Select>
                 ) : tipoDato === 'json' ? (
                   <Textarea
-                    value={valor}
-                    onChange={(e) => setValor(e.target.value)}
+                    {...register('valor')}
                     placeholder='{"key": "value"}'
                     rows={5}
+                    bg={inputBg}
+                    borderColor={borderColor}
                   />
                 ) : (
                   <Input
-                    value={valor}
-                    onChange={(e) => setValor(e.target.value)}
+                    {...register('valor')}
                     type={tipoDato === 'int' ? 'number' : 'text'}
                     placeholder={
                       tipoDato === 'int'
                         ? '100'
                         : 'Valor de la configuración'
                     }
+                    bg={inputBg}
+                    borderColor={borderColor}
                   />
                 )}
+                <FormErrorMessage>{errors.valor?.message}</FormErrorMessage>
               </FormControl>
 
-              <FormControl>
+              <FormControl isInvalid={!!errors.descripcion}>
                 <FormLabel>Descripción</FormLabel>
                 <Textarea
-                  value={descripcion}
-                  onChange={(e) => setDescripcion(e.target.value)}
+                  {...register('descripcion')}
                   placeholder="Describe el propósito de esta configuración"
                   rows={3}
+                  bg={inputBg}
+                  borderColor={borderColor}
                 />
+                <FormErrorMessage>{errors.descripcion?.message}</FormErrorMessage>
               </FormControl>
 
               <FormControl display="flex" alignItems="center">
                 <FormLabel mb={0}>Configuración Global</FormLabel>
                 <Switch
+                  {...register('es_Global')}
                   isChecked={esGlobal}
-                  onChange={(e) => setEsGlobal(e.target.checked)}
+                  onChange={(e) => setValue('es_Global', e.target.checked, { shouldValidate: true })}
                   colorScheme="blue"
                 />
               </FormControl>
@@ -232,11 +244,11 @@ export function ConfiguracionModal({ isOpen, onClose, configuracion }: Configura
                 <HStack
                   w="full"
                   p={3}
-                  bg="blue.50"
+                  bg={colorMode === 'dark' ? 'blue.900' : colorMode === 'blue' ? 'blue.800' : 'blue.50'}
                   borderRadius="md"
                   spacing={2}
                 >
-                  <Text fontSize="sm" color="blue.700">
+                  <Text fontSize="sm" color={colorMode === 'dark' || colorMode === 'blue' ? 'blue.200' : 'blue.700'}>
                     ⚠️ Las configuraciones globales aplican a todas las empresas
                   </Text>
                 </HStack>
@@ -251,9 +263,10 @@ export function ConfiguracionModal({ isOpen, onClose, configuracion }: Configura
             <Button
               type="submit"
               colorScheme="blue"
-              isLoading={isCreating || isUpdating}
+              isLoading={isLoading}
+              loadingText={isEdit ? 'Actualizando...' : 'Creando...'}
             >
-              {configuracion ? 'Actualizar' : 'Crear'}
+              {isEdit ? 'Actualizar' : 'Crear'}
             </Button>
           </ModalFooter>
         </form>

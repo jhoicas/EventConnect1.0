@@ -1,7 +1,7 @@
 using EventConnect.Domain.Entities;
 using EventConnect.Domain.Repositories;
 using Dapper;
-using MySqlConnector;
+using Npgsql;
 
 namespace EventConnect.Infrastructure.Repositories;
 
@@ -69,7 +69,7 @@ public class UsuarioRepository : RepositoryBase<Usuario>, IUsuarioRepository
             LEFT JOIN Empresa e ON u.Empresa_Id = e.Id
             ORDER BY u.Fecha_Creacion DESC";
         
-        using var connection = new MySqlConnection(_connectionString);
+        using var connection = new NpgsqlConnection(_connectionString);
         return await connection.QueryAsync(sql);
     }
 
@@ -124,7 +124,7 @@ public class UsuarioRepository : RepositoryBase<Usuario>, IUsuarioRepository
                     WHERE u.Estado = 'Inactivo' 
                     AND r.Nombre IN ('Admin-Proveedor', 'Usuario-Proveedor')";
         
-        using var connection = new MySqlConnection(_connectionString);
+        using var connection = new NpgsqlConnection(_connectionString);
         var count = await connection.ExecuteScalarAsync<int>(sql);
         return count;
     }

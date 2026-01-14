@@ -45,8 +45,8 @@ public class ContenidoLandingRepository : RepositoryBase<ContenidoLanding>, ICon
             INSERT INTO Contenido_Landing 
             (Seccion, Titulo, Subtitulo, Descripcion, Imagen_URL, Icono_Nombre, Orden, Activo, Fecha_Actualizacion)
             VALUES 
-            (@Seccion, @Titulo, @Subtitulo, @Descripcion, @Imagen_URL, @Icono_Nombre, @Orden, @Activo, @Fecha_Actualizacion);
-            SELECT LAST_INSERT_ID();";
+            (@Seccion, @Titulo, @Subtitulo, @Descripcion, @Imagen_URL, @Icono_Nombre, @Orden, @Activo, @Fecha_Actualizacion)
+            RETURNING Id;";
         
         contenido.Fecha_Actualizacion = DateTime.Now;
         return await connection.ExecuteScalarAsync<int>(query, contenido);

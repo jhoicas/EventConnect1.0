@@ -20,8 +20,11 @@ import {
   Grid,
   GridItem,
 } from '@chakra-ui/react';
-import { useState, useEffect } from 'react';
+import React, { useEffect } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
 import { useCreateClienteMutation, useUpdateClienteMutation, type Cliente } from '../store/api/clienteApi';
+import { clienteSchema, type ClienteFormData } from '../lib/validations/clienteSchema';
 
 interface ClienteModalProps {
   isOpen: boolean;
@@ -30,132 +33,118 @@ interface ClienteModalProps {
 }
 
 export const ClienteModal = ({ isOpen, onClose, cliente }: ClienteModalProps) => {
-  const [colorMode, setColorMode] = useState<'light' | 'dark' | 'blue'>('light');
   const toast = useToast();
-  
-  const [formData, setFormData] = useState({
-    tipo_Cliente: 'Persona',
-    nombre: '',
-    documento: '',
-    tipo_Documento: 'CC',
-    email: '',
-    telefono: '',
-    direccion: '',
-    ciudad: '',
-    contacto_Nombre: '',
-    contacto_Telefono: '',
-    observaciones: '',
-  });
-
-  const [errors, setErrors] = useState<Record<string, string>>({});
-
   const [createCliente, { isLoading: isCreating }] = useCreateClienteMutation();
   const [updateCliente, { isLoading: isUpdating }] = useUpdateClienteMutation();
 
   const isEdit = !!cliente;
   const isLoading = isCreating || isUpdating;
 
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+    reset,
+    watch,
+  } = useForm<ClienteFormData>({
+    resolver: zodResolver(clienteSchema),
+    defaultValues: {
+      tipo_Cliente: 'Persona',
+      nombre: '',
+      documento: '',
+      tipo_Documento: 'CC',
+      email: '',
+      telefono: '',
+      direccion: '',
+      ciudad: '',
+      contacto_Nombre: '',
+      contacto_Telefono: '',
+      observaciones: '',
+    },
+  });
+
+  const tipoCliente = watch('tipo_Cliente');
+
+  // Resetear formulario cuando cambia el cliente o se abre/cierra el modal
   useEffect(() => {
-    const stored = localStorage.getItem('chakra-ui-color-mode');
-    if (stored === 'light' || stored === 'dark' || stored === 'blue') {
-      setColorMode(stored);
+    if (isOpen) {
+      if (cliente) {
+        reset({
+          tipo_Cliente: cliente.tipo_Cliente,
+          nombre: cliente.nombre,
+          documento: cliente.documento,
+          tipo_Documento: cliente.tipo_Documento,
+          email: cliente.email || '',
+          telefono: cliente.telefono || '',
+          direccion: cliente.direccion || '',
+          ciudad: cliente.ciudad || '',
+          contacto_Nombre: cliente.contacto_Nombre || '',
+          contacto_Telefono: cliente.contacto_Telefono || '',
+          observaciones: cliente.observaciones || '',
+        });
+      } else {
+        reset({
+          tipo_Cliente: 'Persona',
+          nombre: '',
+          documento: '',
+          tipo_Documento: 'CC',
+          email: '',
+          telefono: '',
+          direccion: '',
+          ciudad: '',
+          contacto_Nombre: '',
+          contacto_Telefono: '',
+          observaciones: '',
+        });
+      }
     }
-  }, []);
+  }, [cliente, isOpen, reset]);
 
-  useEffect(() => {
-    if (cliente) {
-      setFormData({
-        tipo_Cliente: cliente.tipo_Cliente,
-        nombre: cliente.nombre,
-        documento: cliente.documento,
-        tipo_Documento: cliente.tipo_Documento,
-        email: cliente.email || '',
-        telefono: cliente.telefono || '',
-        direccion: cliente.direccion || '',
-        ciudad: cliente.ciudad || '',
-        contacto_Nombre: cliente.contacto_Nombre || '',
-        contacto_Telefono: cliente.contacto_Telefono || '',
-        observaciones: cliente.observaciones || '',
-      });
-    } else {
-      setFormData({
-        tipo_Cliente: 'Persona',
-        nombre: '',
-        documento: '',
-        tipo_Documento: 'CC',
-        email: '',
-        telefono: '',
-        direccion: '',
-        ciudad: '',
-        contacto_Nombre: '',
-        contacto_Telefono: '',
-        observaciones: '',
-      });
-    }
-    setErrors({});
-  }, [cliente, isOpen]);
-
-  const validate = () => {
-    const newErrors: Record<string, string> = {};
-    
-    if (!formData.nombre.trim()) newErrors.nombre = 'El nombre es requerido';
-    if (!formData.documento.trim()) newErrors.documento = 'El documento es requerido';
-    if (formData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-      newErrors.email = 'Email inválido';
-    }
-    
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!validate()) return;
-
+  const onSubmit = async (data: ClienteFormData) => {
     try {
       if (isEdit) {
         await updateCliente({
           id: cliente.id,
-          tipo_Cliente: formData.tipo_Cliente,
-          nombre: formData.nombre,
-          documento: formData.documento,
-          tipo_Documento: formData.tipo_Documento,
-          email: formData.email || undefined,
-          telefono: formData.telefono || undefined,
-          direccion: formData.direccion || undefined,
-          ciudad: formData.ciudad || undefined,
-          contacto_Nombre: formData.contacto_Nombre || undefined,
-          contacto_Telefono: formData.contacto_Telefono || undefined,
-          observaciones: formData.observaciones || undefined,
+          tipo_Cliente: data.tipo_Cliente,
+          nombre: data.nombre,
+          documento: data.documento,
+          tipo_Documento: data.tipo_Documento,
+          email: data.email || undefined,
+          telefono: data.telefono || undefined,
+          direccion: data.direccion || undefined,
+          ciudad: data.ciudad || undefined,
+          contacto_Nombre: data.contacto_Nombre || undefined,
+          contacto_Telefono: data.contacto_Telefono || undefined,
+          observaciones: data.observaciones || undefined,
           rating: cliente.rating,
           estado: cliente.estado,
         }).unwrap();
         
         toast({
           title: 'Cliente actualizado',
-          description: `El cliente "${formData.nombre}" fue actualizado exitosamente.`,
+          description: `El cliente "${data.nombre}" fue actualizado exitosamente.`,
           status: 'success',
           duration: 3000,
           isClosable: true,
         });
       } else {
         await createCliente({
-          tipo_Cliente: formData.tipo_Cliente,
-          nombre: formData.nombre,
-          documento: formData.documento,
-          tipo_Documento: formData.tipo_Documento,
-          email: formData.email || undefined,
-          telefono: formData.telefono || undefined,
-          direccion: formData.direccion || undefined,
-          ciudad: formData.ciudad || undefined,
-          contacto_Nombre: formData.contacto_Nombre || undefined,
-          contacto_Telefono: formData.contacto_Telefono || undefined,
-          observaciones: formData.observaciones || undefined,
+          tipo_Cliente: data.tipo_Cliente,
+          nombre: data.nombre,
+          documento: data.documento,
+          tipo_Documento: data.tipo_Documento,
+          email: data.email || undefined,
+          telefono: data.telefono || undefined,
+          direccion: data.direccion || undefined,
+          ciudad: data.ciudad || undefined,
+          contacto_Nombre: data.contacto_Nombre || undefined,
+          contacto_Telefono: data.contacto_Telefono || undefined,
+          observaciones: data.observaciones || undefined,
         }).unwrap();
         
         toast({
           title: 'Cliente creado',
-          description: `El cliente "${formData.nombre}" fue creado exitosamente.`,
+          description: `El cliente "${data.nombre}" fue creado exitosamente.`,
           status: 'success',
           duration: 3000,
           isClosable: true,
@@ -164,9 +153,10 @@ export const ClienteModal = ({ isOpen, onClose, cliente }: ClienteModalProps) =>
       
       handleClose();
     } catch (error: any) {
+      const errorMessage = error?.data?.message || error?.message || 'Ocurrió un error al guardar el cliente';
       toast({
         title: 'Error',
-        description: error?.data?.message || 'Ocurrió un error al guardar el cliente',
+        description: errorMessage,
         status: 'error',
         duration: 5000,
         isClosable: true,
@@ -175,12 +165,12 @@ export const ClienteModal = ({ isOpen, onClose, cliente }: ClienteModalProps) =>
   };
 
   const handleClose = () => {
+    reset();
     onClose();
   };
 
-  const bgColor = colorMode === 'dark' ? '#1a2035' : colorMode === 'blue' ? '#192734' : '#ffffff';
-  const inputBg = colorMode === 'dark' ? '#242b3d' : colorMode === 'blue' ? '#1e3140' : '#f5f6f8';
-  const borderColor = colorMode === 'dark' ? '#2d3548' : colorMode === 'blue' ? '#2a4255' : '#e2e8f0';
+  // Obtener color mode y colores del hook personalizado
+  const { bgColor, inputBg, borderColor } = useColorModeLocal();
 
   return (
     <Modal 
@@ -198,7 +188,7 @@ export const ClienteModal = ({ isOpen, onClose, cliente }: ClienteModalProps) =>
         m={{ base: 0, md: 4 }}
         overflow="auto"
       >
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit(onSubmit)}>
           <ModalHeader fontSize={{ base: "lg", md: "xl" }}>
             {isEdit ? 'Editar Cliente' : 'Nuevo Cliente'}
           </ModalHeader>
@@ -215,9 +205,8 @@ export const ClienteModal = ({ isOpen, onClose, cliente }: ClienteModalProps) =>
                   <FormControl>
                     <FormLabel fontSize={{ base: "sm", md: "md" }}>Tipo de Cliente</FormLabel>
                     <Select
-                      value={formData.tipo_Cliente}
+                      {...register('tipo_Cliente')}
                       size={{ base: "sm", md: "md" }}
-                      onChange={(e) => setFormData({ ...formData, tipo_Cliente: e.target.value })}
                       bg={inputBg}
                       borderColor={borderColor}
                     >
@@ -231,8 +220,7 @@ export const ClienteModal = ({ isOpen, onClose, cliente }: ClienteModalProps) =>
                   <FormControl>
                     <FormLabel fontSize={{ base: "sm", md: "md" }}>Tipo de Documento</FormLabel>
                     <Select
-                      value={formData.tipo_Documento}
-                      onChange={(e) => setFormData({ ...formData, tipo_Documento: e.target.value })}
+                      {...register('tipo_Documento')}
                       bg={inputBg}
                       borderColor={borderColor}
                       size={{ base: "sm", md: "md" }}
@@ -240,7 +228,7 @@ export const ClienteModal = ({ isOpen, onClose, cliente }: ClienteModalProps) =>
                       <option value="CC">Cédula de Ciudadanía</option>
                       <option value="NIT">NIT</option>
                       <option value="CE">Cédula de Extranjería</option>
-                      <option value="Pasaporte">Pasaporte</option>
+                      <option value="PAS">Pasaporte</option>
                     </Select>
                   </FormControl>
                 </GridItem>
@@ -249,27 +237,25 @@ export const ClienteModal = ({ isOpen, onClose, cliente }: ClienteModalProps) =>
               <FormControl isRequired isInvalid={!!errors.nombre}>
                 <FormLabel fontSize={{ base: "sm", md: "md" }}>Nombre Completo / Razón Social</FormLabel>
                 <Input
-                  value={formData.nombre}
-                  onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
-                  placeholder={formData.tipo_Cliente === 'Persona' ? 'Ej: Juan Pérez' : 'Ej: Empresa ABC S.A.S.'}
+                  {...register('nombre')}
+                  placeholder={tipoCliente === 'Persona' ? 'Ej: Juan Pérez' : 'Ej: Empresa ABC S.A.S.'}
                   bg={inputBg}
                   borderColor={borderColor}
                   size={{ base: "sm", md: "md" }}
                 />
-                <FormErrorMessage>{errors.nombre}</FormErrorMessage>
+                <FormErrorMessage>{errors.nombre?.message}</FormErrorMessage>
               </FormControl>
 
               <FormControl isRequired isInvalid={!!errors.documento}>
                 <FormLabel fontSize={{ base: "sm", md: "md" }}>Documento de Identidad</FormLabel>
                 <Input
-                  value={formData.documento}
-                  onChange={(e) => setFormData({ ...formData, documento: e.target.value })}
+                  {...register('documento')}
                   placeholder="123456789"
                   bg={inputBg}
                   borderColor={borderColor}
                   size={{ base: "sm", md: "md" }}
                 />
-                <FormErrorMessage>{errors.documento}</FormErrorMessage>
+                <FormErrorMessage>{errors.documento?.message}</FormErrorMessage>
               </FormControl>
 
               <Grid templateColumns={{ base: "1fr", md: "repeat(2, 1fr)" }} gap={4} w="full">
@@ -278,28 +264,27 @@ export const ClienteModal = ({ isOpen, onClose, cliente }: ClienteModalProps) =>
                     <FormLabel fontSize={{ base: "sm", md: "md" }}>Email</FormLabel>
                     <Input
                       type="email"
-                      value={formData.email}
-                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                      {...register('email')}
                       placeholder="ejemplo@correo.com"
                       bg={inputBg}
                       borderColor={borderColor}
                       size={{ base: "sm", md: "md" }}
                     />
-                    <FormErrorMessage>{errors.email}</FormErrorMessage>
+                    <FormErrorMessage>{errors.email?.message}</FormErrorMessage>
                   </FormControl>
                 </GridItem>
 
                 <GridItem>
-                  <FormControl>
+                  <FormControl isInvalid={!!errors.telefono}>
                     <FormLabel fontSize={{ base: "sm", md: "md" }}>Teléfono</FormLabel>
                     <Input
-                      value={formData.telefono}
-                      onChange={(e) => setFormData({ ...formData, telefono: e.target.value })}
+                      {...register('telefono')}
                       placeholder="300 123 4567"
                       bg={inputBg}
                       borderColor={borderColor}
                       size={{ base: "sm", md: "md" }}
                     />
+                    <FormErrorMessage>{errors.telefono?.message}</FormErrorMessage>
                   </FormControl>
                 </GridItem>
               </Grid>
@@ -309,8 +294,7 @@ export const ClienteModal = ({ isOpen, onClose, cliente }: ClienteModalProps) =>
                   <FormControl>
                     <FormLabel fontSize={{ base: "sm", md: "md" }}>Ciudad</FormLabel>
                     <Input
-                      value={formData.ciudad}
-                      onChange={(e) => setFormData({ ...formData, ciudad: e.target.value })}
+                      {...register('ciudad')}
                       placeholder="Bogotá"
                       bg={inputBg}
                       borderColor={borderColor}
@@ -323,8 +307,7 @@ export const ClienteModal = ({ isOpen, onClose, cliente }: ClienteModalProps) =>
                   <FormControl>
                     <FormLabel fontSize={{ base: "sm", md: "md" }}>Dirección</FormLabel>
                     <Input
-                      value={formData.direccion}
-                      onChange={(e) => setFormData({ ...formData, direccion: e.target.value })}
+                      {...register('direccion')}
                       placeholder="Calle 123 #45-67"
                       bg={inputBg}
                       borderColor={borderColor}
@@ -334,14 +317,13 @@ export const ClienteModal = ({ isOpen, onClose, cliente }: ClienteModalProps) =>
                 </GridItem>
               </Grid>
 
-              {formData.tipo_Cliente === 'Empresa' && (
+              {tipoCliente === 'Empresa' && (
                 <Grid templateColumns={{ base: "1fr", md: "repeat(2, 1fr)" }} gap={4} w="full">
                   <GridItem>
                     <FormControl>
                       <FormLabel fontSize={{ base: "sm", md: "md" }}>Contacto - Nombre</FormLabel>
                       <Input
-                        value={formData.contacto_Nombre}
-                        onChange={(e) => setFormData({ ...formData, contacto_Nombre: e.target.value })}
+                        {...register('contacto_Nombre')}
                         size={{ base: "sm", md: "md" }}
                         placeholder="Nombre del contacto"
                         bg={inputBg}
@@ -351,16 +333,16 @@ export const ClienteModal = ({ isOpen, onClose, cliente }: ClienteModalProps) =>
                   </GridItem>
 
                   <GridItem>
-                    <FormControl>
+                    <FormControl isInvalid={!!errors.contacto_Telefono}>
                       <FormLabel fontSize={{ base: "sm", md: "md" }}>Contacto - Teléfono</FormLabel>
                       <Input
-                        value={formData.contacto_Telefono}
-                        onChange={(e) => setFormData({ ...formData, contacto_Telefono: e.target.value })}
+                        {...register('contacto_Telefono')}
                         placeholder="300 123 4567"
                         bg={inputBg}
                         borderColor={borderColor}
                         size={{ base: "sm", md: "md" }}
                       />
+                      <FormErrorMessage>{errors.contacto_Telefono?.message}</FormErrorMessage>
                     </FormControl>
                   </GridItem>
                 </Grid>
@@ -369,8 +351,7 @@ export const ClienteModal = ({ isOpen, onClose, cliente }: ClienteModalProps) =>
               <FormControl>
                 <FormLabel>Observaciones</FormLabel>
                 <Textarea
-                  value={formData.observaciones}
-                  onChange={(e) => setFormData({ ...formData, observaciones: e.target.value })}
+                  {...register('observaciones')}
                   placeholder="Notas adicionales sobre el cliente"
                   bg={inputBg}
                   borderColor={borderColor}

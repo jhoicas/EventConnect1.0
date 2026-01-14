@@ -1,6 +1,6 @@
 ﻿using Dapper;
 using EventConnect.Domain.Entities;
-using MySqlConnector;
+using Npgsql;
 
 namespace EventConnect.Infrastructure.Repositories;
 
@@ -10,7 +10,7 @@ public class MovimientoInventarioRepository : RepositoryBase<MovimientoInventari
 
     public async Task<IEnumerable<MovimientoInventario>> GetByEmpresaIdAsync(int empresaId, DateTime? fechaInicio = null, DateTime? fechaFin = null)
     {
-        using var connection = new MySqlConnection(_connectionString);
+        using var connection = new NpgsqlConnection(_connectionString);
         var query = @"
             SELECT * FROM Movimiento_Inventario 
             WHERE Empresa_Id = @EmpresaId
@@ -22,21 +22,21 @@ public class MovimientoInventarioRepository : RepositoryBase<MovimientoInventari
 
     public async Task<IEnumerable<MovimientoInventario>> GetByProductoIdAsync(int productoId)
     {
-        using var connection = new MySqlConnection(_connectionString);
+        using var connection = new NpgsqlConnection(_connectionString);
         var query = "SELECT * FROM Movimiento_Inventario WHERE Producto_Id = @ProductoId ORDER BY Fecha_Movimiento DESC";
         return await connection.QueryAsync<MovimientoInventario>(query, new { ProductoId = productoId });
     }
 
     public async Task<IEnumerable<MovimientoInventario>> GetByActivoIdAsync(int activoId)
     {
-        using var connection = new MySqlConnection(_connectionString);
+        using var connection = new NpgsqlConnection(_connectionString);
         var query = "SELECT * FROM Movimiento_Inventario WHERE Activo_Id = @ActivoId ORDER BY Fecha_Movimiento DESC";
         return await connection.QueryAsync<MovimientoInventario>(query, new { ActivoId = activoId });
     }
 
     public async Task<IEnumerable<MovimientoInventario>> GetByTipoMovimientoAsync(int empresaId, string tipoMovimiento)
     {
-        using var connection = new MySqlConnection(_connectionString);
+        using var connection = new NpgsqlConnection(_connectionString);
         var query = "SELECT * FROM Movimiento_Inventario WHERE Empresa_Id = @EmpresaId AND Tipo_Movimiento = @TipoMovimiento ORDER BY Fecha_Movimiento DESC";
         return await connection.QueryAsync<MovimientoInventario>(query, new { EmpresaId = empresaId, TipoMovimiento = tipoMovimiento });
     }

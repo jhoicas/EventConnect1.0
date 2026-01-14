@@ -24,9 +24,13 @@ import {
   Grid,
   GridItem,
 } from '@chakra-ui/react';
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
+import { useForm, Controller } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
 import { useCreateProductoMutation, useUpdateProductoMutation, type Producto } from '../store/api/productoApi';
 import { useGetCategoriasQuery } from '../store/api/categoriaApi';
+import { productoSchema, type ProductoFormData } from '../lib/validations/productoSchema';
+import { useColorModeLocal } from '../hooks/useColorModeLocal';
 
 interface ProductoModalProps {
   isOpen: boolean;
@@ -35,150 +39,137 @@ interface ProductoModalProps {
 }
 
 export const ProductoModal = ({ isOpen, onClose, producto }: ProductoModalProps) => {
-  const [colorMode, setColorMode] = useState<'light' | 'dark' | 'blue'>('light');
   const toast = useToast();
-  
   const { data: categorias = [] } = useGetCategoriasQuery();
   
-  const [formData, setFormData] = useState({
-    categoria_Id: 0,
-    sku: '',
-    nombre: '',
-    descripcion: '',
-    unidad_Medida: 'Unidad',
-    precio_Alquiler_Dia: 0,
-    cantidad_Stock: 0,
-    stock_Minimo: 10,
-    imagen_URL: '',
-    es_Alquilable: true,
-    es_Vendible: false,
-    peso_Kg: 0,
-    dimensiones: '',
-    observaciones: '',
-  });
-
-  const [errors, setErrors] = useState<Record<string, string>>({});
-
   const [createProducto, { isLoading: isCreating }] = useCreateProductoMutation();
   const [updateProducto, { isLoading: isUpdating }] = useUpdateProductoMutation();
 
   const isEdit = !!producto;
   const isLoading = isCreating || isUpdating;
 
+  const {
+    register,
+    handleSubmit,
+    control,
+    formState: { errors },
+    reset,
+  } = useForm<ProductoFormData>({
+    resolver: zodResolver(productoSchema),
+    defaultValues: {
+      categoria_Id: 0,
+      sku: '',
+      nombre: '',
+      descripcion: '',
+      unidad_Medida: 'Unidad',
+      precio_Alquiler_Dia: 0,
+      cantidad_Stock: 0,
+      stock_Minimo: 10,
+      imagen_URL: '',
+      es_Alquilable: true,
+      es_Vendible: false,
+      peso_Kg: 0,
+      dimensiones: '',
+      observaciones: '',
+    },
+  });
+
+  // Resetear formulario cuando cambia el producto o se abre/cierra el modal
   useEffect(() => {
-    const stored = localStorage.getItem('chakra-ui-color-mode');
-    if (stored === 'light' || stored === 'dark' || stored === 'blue') {
-      setColorMode(stored);
+    if (isOpen) {
+      if (producto) {
+        reset({
+          categoria_Id: producto.categoria_Id,
+          sku: producto.sku,
+          nombre: producto.nombre,
+          descripcion: producto.descripcion || '',
+          unidad_Medida: producto.unidad_Medida,
+          precio_Alquiler_Dia: producto.precio_Alquiler_Dia,
+          cantidad_Stock: producto.cantidad_Stock,
+          stock_Minimo: producto.stock_Minimo,
+          imagen_URL: producto.imagen_URL || '',
+          es_Alquilable: producto.es_Alquilable,
+          es_Vendible: producto.es_Vendible,
+          peso_Kg: producto.peso_Kg || 0,
+          dimensiones: producto.dimensiones || '',
+          observaciones: producto.observaciones || '',
+        });
+      } else {
+        reset({
+          categoria_Id: 0,
+          sku: '',
+          nombre: '',
+          descripcion: '',
+          unidad_Medida: 'Unidad',
+          precio_Alquiler_Dia: 0,
+          cantidad_Stock: 0,
+          stock_Minimo: 10,
+          imagen_URL: '',
+          es_Alquilable: true,
+          es_Vendible: false,
+          peso_Kg: 0,
+          dimensiones: '',
+          observaciones: '',
+        });
+      }
     }
-  }, []);
+  }, [producto, isOpen, reset]);
 
-  useEffect(() => {
-    if (producto) {
-      setFormData({
-        categoria_Id: producto.categoria_Id,
-        sku: producto.sku,
-        nombre: producto.nombre,
-        descripcion: producto.descripcion || '',
-        unidad_Medida: producto.unidad_Medida,
-        precio_Alquiler_Dia: producto.precio_Alquiler_Dia,
-        cantidad_Stock: producto.cantidad_Stock,
-        stock_Minimo: producto.stock_Minimo,
-        imagen_URL: producto.imagen_URL || '',
-        es_Alquilable: producto.es_Alquilable,
-        es_Vendible: producto.es_Vendible,
-        peso_Kg: producto.peso_Kg || 0,
-        dimensiones: producto.dimensiones || '',
-        observaciones: producto.observaciones || '',
-      });
-    } else {
-      setFormData({
-        categoria_Id: 0,
-        sku: '',
-        nombre: '',
-        descripcion: '',
-        unidad_Medida: 'Unidad',
-        precio_Alquiler_Dia: 0,
-        cantidad_Stock: 0,
-        stock_Minimo: 10,
-        imagen_URL: '',
-        es_Alquilable: true,
-        es_Vendible: false,
-        peso_Kg: 0,
-        dimensiones: '',
-        observaciones: '',
-      });
-    }
-    setErrors({});
-  }, [producto, isOpen]);
+  // Obtener color mode y colores del hook personalizado
+  const { bgColor, inputBg, borderColor } = useColorModeLocal();
 
-  const validate = () => {
-    const newErrors: Record<string, string> = {};
-    
-    if (!formData.categoria_Id) newErrors.categoria_Id = 'Debe seleccionar una categoría';
-    if (!formData.sku.trim()) newErrors.sku = 'El SKU es requerido';
-    if (!formData.nombre.trim()) newErrors.nombre = 'El nombre es requerido';
-    if (formData.precio_Alquiler_Dia <= 0) newErrors.precio_Alquiler_Dia = 'El precio debe ser mayor a 0';
-    if (formData.cantidad_Stock < 0) newErrors.cantidad_Stock = 'El stock no puede ser negativo';
-    
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!validate()) return;
-
+  const onSubmit = async (data: ProductoFormData) => {
     try {
       if (isEdit) {
         await updateProducto({
           id: producto.id,
-          categoria_Id: formData.categoria_Id,
-          sku: formData.sku,
-          nombre: formData.nombre,
-          descripcion: formData.descripcion || undefined,
-          unidad_Medida: formData.unidad_Medida,
-          precio_Alquiler_Dia: formData.precio_Alquiler_Dia,
-          cantidad_Stock: formData.cantidad_Stock,
-          stock_Minimo: formData.stock_Minimo,
-          imagen_URL: formData.imagen_URL || undefined,
-          es_Alquilable: formData.es_Alquilable,
-          es_Vendible: formData.es_Vendible,
+          categoria_Id: data.categoria_Id,
+          sku: data.sku,
+          nombre: data.nombre,
+          descripcion: data.descripcion || undefined,
+          unidad_Medida: data.unidad_Medida,
+          precio_Alquiler_Dia: data.precio_Alquiler_Dia,
+          cantidad_Stock: data.cantidad_Stock,
+          stock_Minimo: data.stock_Minimo,
+          imagen_URL: data.imagen_URL || undefined,
+          es_Alquilable: data.es_Alquilable,
+          es_Vendible: data.es_Vendible,
           requiere_Mantenimiento: producto.requiere_Mantenimiento,
           dias_Mantenimiento: producto.dias_Mantenimiento,
-          peso_Kg: formData.peso_Kg || undefined,
-          dimensiones: formData.dimensiones || undefined,
-          observaciones: formData.observaciones || undefined,
+          peso_Kg: data.peso_Kg || undefined,
+          dimensiones: data.dimensiones || undefined,
+          observaciones: data.observaciones || undefined,
           activo: producto.activo,
         }).unwrap();
         
         toast({
           title: 'Producto actualizado',
-          description: `El producto "${formData.nombre}" fue actualizado exitosamente.`,
+          description: `El producto "${data.nombre}" fue actualizado exitosamente.`,
           status: 'success',
           duration: 3000,
           isClosable: true,
         });
       } else {
         await createProducto({
-          categoria_Id: formData.categoria_Id,
-          sku: formData.sku,
-          nombre: formData.nombre,
-          descripcion: formData.descripcion || undefined,
-          unidad_Medida: formData.unidad_Medida,
-          precio_Alquiler_Dia: formData.precio_Alquiler_Dia,
-          cantidad_Stock: formData.cantidad_Stock,
-          stock_Minimo: formData.stock_Minimo,
-          imagen_URL: formData.imagen_URL || undefined,
-          es_Alquilable: formData.es_Alquilable,
-          es_Vendible: formData.es_Vendible,
-          peso_Kg: formData.peso_Kg || undefined,
-          dimensiones: formData.dimensiones || undefined,
-          observaciones: formData.observaciones || undefined,
+          categoria_Id: data.categoria_Id,
+          sku: data.sku,
+          nombre: data.nombre,
+          descripcion: data.descripcion || undefined,
+          unidad_Medida: data.unidad_Medida,
+          precio_Alquiler_Dia: data.precio_Alquiler_Dia,
+          cantidad_Stock: data.cantidad_Stock,
+          stock_Minimo: data.stock_Minimo,
+          imagen_URL: data.imagen_URL || undefined,
+          es_Alquilable: data.es_Alquilable,
+          es_Vendible: data.es_Vendible,
+          peso_Kg: data.peso_Kg || undefined,
+          dimensiones: data.dimensiones || undefined,
+          observaciones: data.observaciones || undefined,
         }).unwrap();
         
         toast({
           title: 'Producto creado',
-          description: `El producto "${formData.nombre}" fue creado exitosamente.`,
+          description: `El producto "${data.nombre}" fue creado exitosamente.`,
           status: 'success',
           duration: 3000,
           isClosable: true,
@@ -187,9 +178,10 @@ export const ProductoModal = ({ isOpen, onClose, producto }: ProductoModalProps)
       
       handleClose();
     } catch (error: any) {
+      const errorMessage = error?.data?.message || error?.message || 'Ocurrió un error al guardar el producto';
       toast({
         title: 'Error',
-        description: error?.data?.message || 'Ocurrió un error al guardar el producto',
+        description: errorMessage,
         status: 'error',
         duration: 5000,
         isClosable: true,
@@ -198,12 +190,9 @@ export const ProductoModal = ({ isOpen, onClose, producto }: ProductoModalProps)
   };
 
   const handleClose = () => {
+    reset();
     onClose();
   };
-
-  const bgColor = colorMode === 'dark' ? '#1a2035' : colorMode === 'blue' ? '#192734' : '#ffffff';
-  const inputBg = colorMode === 'dark' ? '#242b3d' : colorMode === 'blue' ? '#1e3140' : '#f5f6f8';
-  const borderColor = colorMode === 'dark' ? '#2d3548' : colorMode === 'blue' ? '#2a4255' : '#e2e8f0';
 
   return (
     <Modal 
@@ -221,7 +210,7 @@ export const ProductoModal = ({ isOpen, onClose, producto }: ProductoModalProps)
         m={{ base: 0, md: 4 }}
         overflow="auto"
       >
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit(onSubmit)}>
           <ModalHeader fontSize={{ base: "lg", md: "xl" }}>
             {isEdit ? 'Editar Producto' : 'Nuevo Producto'}
           </ModalHeader>
@@ -238,8 +227,7 @@ export const ProductoModal = ({ isOpen, onClose, producto }: ProductoModalProps)
                   <FormControl isRequired isInvalid={!!errors.categoria_Id}>
                     <FormLabel fontSize={{ base: "sm", md: "md" }}>Categoría</FormLabel>
                     <Select
-                      value={formData.categoria_Id}
-                      onChange={(e) => setFormData({ ...formData, categoria_Id: Number(e.target.value) })}
+                      {...register('categoria_Id', { valueAsNumber: true })}
                       bg={inputBg}
                       size={{ base: "sm", md: "md" }}
                       borderColor={borderColor}
@@ -251,7 +239,7 @@ export const ProductoModal = ({ isOpen, onClose, producto }: ProductoModalProps)
                         </option>
                       ))}
                     </Select>
-                    <FormErrorMessage>{errors.categoria_Id}</FormErrorMessage>
+                    <FormErrorMessage>{errors.categoria_Id?.message}</FormErrorMessage>
                   </FormControl>
                 </GridItem>
 
@@ -259,14 +247,13 @@ export const ProductoModal = ({ isOpen, onClose, producto }: ProductoModalProps)
                   <FormControl isRequired isInvalid={!!errors.sku}>
                     <FormLabel fontSize={{ base: "sm", md: "md" }}>SKU</FormLabel>
                     <Input
-                      value={formData.sku}
-                      onChange={(e) => setFormData({ ...formData, sku: e.target.value })}
+                      {...register('sku')}
                       placeholder="Ej: SIL-001"
                       bg={inputBg}
                       borderColor={borderColor}
                       size={{ base: "sm", md: "md" }}
                     />
-                    <FormErrorMessage>{errors.sku}</FormErrorMessage>
+                    <FormErrorMessage>{errors.sku?.message}</FormErrorMessage>
                   </FormControl>
                 </GridItem>
               </Grid>
@@ -274,27 +261,26 @@ export const ProductoModal = ({ isOpen, onClose, producto }: ProductoModalProps)
               <FormControl isRequired isInvalid={!!errors.nombre}>
                 <FormLabel fontSize={{ base: "sm", md: "md" }}>Nombre</FormLabel>
                 <Input
-                  value={formData.nombre}
-                  onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
+                  {...register('nombre')}
                   placeholder="Ej: Silla Tiffany Blanca"
                   bg={inputBg}
                   borderColor={borderColor}
                   size={{ base: "sm", md: "md" }}
                 />
-                <FormErrorMessage>{errors.nombre}</FormErrorMessage>
+                <FormErrorMessage>{errors.nombre?.message}</FormErrorMessage>
               </FormControl>
 
-              <FormControl>
+              <FormControl isInvalid={!!errors.descripcion}>
                 <FormLabel fontSize={{ base: "sm", md: "md" }}>Descripción</FormLabel>
                 <Textarea
-                  value={formData.descripcion}
-                  onChange={(e) => setFormData({ ...formData, descripcion: e.target.value })}
+                  {...register('descripcion')}
                   placeholder="Descripción detallada del producto"
                   bg={inputBg}
                   borderColor={borderColor}
                   rows={3}
                   size={{ base: "sm", md: "md" }}
                 />
+                <FormErrorMessage>{errors.descripcion?.message}</FormErrorMessage>
               </FormControl>
 
               <Grid 
@@ -305,55 +291,73 @@ export const ProductoModal = ({ isOpen, onClose, producto }: ProductoModalProps)
                 <GridItem>
                   <FormControl isRequired isInvalid={!!errors.precio_Alquiler_Dia}>
                     <FormLabel fontSize={{ base: "sm", md: "md" }}>Precio por Día ($)</FormLabel>
-                    <NumberInput
-                      value={formData.precio_Alquiler_Dia}
-                      onChange={(_, val) => setFormData({ ...formData, precio_Alquiler_Dia: val })}
-                      min={0}
-                      size={{ base: "sm", md: "md" }}
-                    >
-                      <NumberInputField bg={inputBg} borderColor={borderColor} />
-                    </NumberInput>
-                    <FormErrorMessage>{errors.precio_Alquiler_Dia}</FormErrorMessage>
+                    <Controller
+                      name="precio_Alquiler_Dia"
+                      control={control}
+                      render={({ field: { onChange, value } }) => (
+                        <NumberInput
+                          value={value}
+                          onChange={(_, val) => onChange(val)}
+                          min={0}
+                          size={{ base: "sm", md: "md" }}
+                        >
+                          <NumberInputField bg={inputBg} borderColor={borderColor} />
+                        </NumberInput>
+                      )}
+                    />
+                    <FormErrorMessage>{errors.precio_Alquiler_Dia?.message}</FormErrorMessage>
                   </FormControl>
                 </GridItem>
 
                 <GridItem>
                   <FormControl isRequired isInvalid={!!errors.cantidad_Stock}>
                     <FormLabel fontSize={{ base: "sm", md: "md" }}>Stock Actual</FormLabel>
-                    <NumberInput
-                      value={formData.cantidad_Stock}
-                      onChange={(_, val) => setFormData({ ...formData, cantidad_Stock: val })}
-                      min={0}
-                      size={{ base: "sm", md: "md" }}
-                    >
-                      <NumberInputField bg={inputBg} borderColor={borderColor} />
-                    </NumberInput>
-                    <FormErrorMessage>{errors.cantidad_Stock}</FormErrorMessage>
+                    <Controller
+                      name="cantidad_Stock"
+                      control={control}
+                      render={({ field: { onChange, value } }) => (
+                        <NumberInput
+                          value={value}
+                          onChange={(_, val) => onChange(val)}
+                          min={0}
+                          size={{ base: "sm", md: "md" }}
+                        >
+                          <NumberInputField bg={inputBg} borderColor={borderColor} />
+                        </NumberInput>
+                      )}
+                    />
+                    <FormErrorMessage>{errors.cantidad_Stock?.message}</FormErrorMessage>
                   </FormControl>
                 </GridItem>
 
                 <GridItem>
-                  <FormControl>
+                  <FormControl isInvalid={!!errors.stock_Minimo}>
                     <FormLabel fontSize={{ base: "sm", md: "md" }}>Stock Mínimo</FormLabel>
-                    <NumberInput
-                      value={formData.stock_Minimo}
-                      onChange={(_, val) => setFormData({ ...formData, stock_Minimo: val })}
-                      min={0}
-                      size={{ base: "sm", md: "md" }}
-                    >
-                      <NumberInputField bg={inputBg} borderColor={borderColor} />
-                    </NumberInput>
+                    <Controller
+                      name="stock_Minimo"
+                      control={control}
+                      render={({ field: { onChange, value } }) => (
+                        <NumberInput
+                          value={value}
+                          onChange={(_, val) => onChange(val)}
+                          min={0}
+                          size={{ base: "sm", md: "md" }}
+                        >
+                          <NumberInputField bg={inputBg} borderColor={borderColor} />
+                        </NumberInput>
+                      )}
+                    />
+                    <FormErrorMessage>{errors.stock_Minimo?.message}</FormErrorMessage>
                   </FormControl>
                 </GridItem>
               </Grid>
 
               <Grid templateColumns="repeat(2, 1fr)" gap={4} w="full">
                 <GridItem>
-                  <FormControl>
+                  <FormControl isInvalid={!!errors.unidad_Medida}>
                     <FormLabel>Unidad de Medida</FormLabel>
                     <Select
-                      value={formData.unidad_Medida}
-                      onChange={(e) => setFormData({ ...formData, unidad_Medida: e.target.value })}
+                      {...register('unidad_Medida')}
                       bg={inputBg}
                       borderColor={borderColor}
                     >
@@ -362,52 +366,77 @@ export const ProductoModal = ({ isOpen, onClose, producto }: ProductoModalProps)
                       <option value="Kit">Kit</option>
                       <option value="Conjunto">Conjunto</option>
                     </Select>
+                    <FormErrorMessage>{errors.unidad_Medida?.message}</FormErrorMessage>
                   </FormControl>
                 </GridItem>
 
                 <GridItem>
-                  <FormControl>
+                  <FormControl isInvalid={!!errors.peso_Kg}>
                     <FormLabel>Peso (Kg)</FormLabel>
-                    <NumberInput
-                      value={formData.peso_Kg}
-                      onChange={(_, val) => setFormData({ ...formData, peso_Kg: val })}
-                      min={0}
-                      step={0.1}
-                    >
-                      <NumberInputField bg={inputBg} borderColor={borderColor} />
-                    </NumberInput>
+                    <Controller
+                      name="peso_Kg"
+                      control={control}
+                      render={({ field: { onChange, value } }) => (
+                        <NumberInput
+                          value={value}
+                          onChange={(_, val) => onChange(val)}
+                          min={0}
+                          step={0.1}
+                        >
+                          <NumberInputField bg={inputBg} borderColor={borderColor} />
+                        </NumberInput>
+                      )}
+                    />
+                    <FormErrorMessage>{errors.peso_Kg?.message}</FormErrorMessage>
                   </FormControl>
                 </GridItem>
               </Grid>
 
-              <FormControl>
+              <FormControl isInvalid={!!errors.imagen_URL}>
                 <FormLabel>URL de Imagen</FormLabel>
                 <Input
-                  value={formData.imagen_URL}
-                  onChange={(e) => setFormData({ ...formData, imagen_URL: e.target.value })}
+                  {...register('imagen_URL')}
                   placeholder="https://ejemplo.com/imagen.jpg"
                   bg={inputBg}
                   borderColor={borderColor}
                 />
+                <FormErrorMessage>{errors.imagen_URL?.message}</FormErrorMessage>
               </FormControl>
 
               <HStack w="full" spacing={8}>
                 <FormControl display="flex" alignItems="center">
                   <FormLabel mb="0">Alquilable</FormLabel>
-                  <Switch
-                    isChecked={formData.es_Alquilable}
-                    onChange={(e) => setFormData({ ...formData, es_Alquilable: e.target.checked })}
-                  />
+                  <Switch {...register('es_Alquilable')} />
                 </FormControl>
 
                 <FormControl display="flex" alignItems="center">
                   <FormLabel mb="0">Vendible</FormLabel>
-                  <Switch
-                    isChecked={formData.es_Vendible}
-                    onChange={(e) => setFormData({ ...formData, es_Vendible: e.target.checked })}
-                  />
+                  <Switch {...register('es_Vendible')} />
                 </FormControl>
               </HStack>
+
+              <FormControl isInvalid={!!errors.dimensiones}>
+                <FormLabel>Dimensiones</FormLabel>
+                <Input
+                  {...register('dimensiones')}
+                  placeholder="Ej: 50x60x80 cm"
+                  bg={inputBg}
+                  borderColor={borderColor}
+                />
+                <FormErrorMessage>{errors.dimensiones?.message}</FormErrorMessage>
+              </FormControl>
+
+              <FormControl isInvalid={!!errors.observaciones}>
+                <FormLabel>Observaciones</FormLabel>
+                <Textarea
+                  {...register('observaciones')}
+                  placeholder="Notas adicionales sobre el producto"
+                  bg={inputBg}
+                  borderColor={borderColor}
+                  rows={3}
+                />
+                <FormErrorMessage>{errors.observaciones?.message}</FormErrorMessage>
+              </FormControl>
             </VStack>
           </ModalBody>
 

@@ -22,9 +22,13 @@ import {
   Grid,
   GridItem,
 } from '@chakra-ui/react';
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
+import { useForm, Controller } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
 import { useCreateActivoMutation, useUpdateActivoMutation, type Activo } from '../store/api/activoApi';
 import { useGetCategoriasQuery } from '../store/api/categoriaApi';
+import { activoSchema, type ActivoFormData } from '../lib/validations/activoSchema';
+import { useColorModeLocal } from '../hooks/useColorModeLocal';
 
 interface ActivoModalProps {
   isOpen: boolean;
@@ -33,141 +37,130 @@ interface ActivoModalProps {
 }
 
 export const ActivoModal = ({ isOpen, onClose, activo }: ActivoModalProps) => {
-  const [colorMode, setColorMode] = useState<'light' | 'dark' | 'blue'>('light');
   const toast = useToast();
-  
   const { data: categorias = [] } = useGetCategoriasQuery();
   
-  const [formData, setFormData] = useState({
-    categoria_Id: 0,
-    codigo_Activo: '',
-    nombre: '',
-    descripcion: '',
-    marca: '',
-    modelo: '',
-    numero_Serie: '',
-    fecha_Adquisicion: '',
-    valor_Adquisicion: 0,
-    vida_Util_Meses: 0,
-    ubicacion_Fisica: '',
-    imagen_URL: '',
-    observaciones: '',
-  });
-
-  const [errors, setErrors] = useState<Record<string, string>>({});
-
   const [createActivo, { isLoading: isCreating }] = useCreateActivoMutation();
   const [updateActivo, { isLoading: isUpdating }] = useUpdateActivoMutation();
 
   const isEdit = !!activo;
   const isLoading = isCreating || isUpdating;
 
+  const {
+    register,
+    handleSubmit,
+    control,
+    formState: { errors },
+    reset,
+  } = useForm<ActivoFormData>({
+    resolver: zodResolver(activoSchema),
+    defaultValues: {
+      categoria_Id: 0,
+      codigo_Activo: '',
+      nombre: '',
+      descripcion: '',
+      marca: '',
+      modelo: '',
+      numero_Serie: '',
+      fecha_Adquisicion: '',
+      valor_Adquisicion: 0,
+      vida_Util_Meses: 0,
+      ubicacion_Fisica: '',
+      imagen_URL: '',
+      observaciones: '',
+    },
+  });
+
+  // Resetear formulario cuando cambia el activo o se abre/cierra el modal
   useEffect(() => {
-    const stored = localStorage.getItem('chakra-ui-color-mode');
-    if (stored === 'light' || stored === 'dark' || stored === 'blue') {
-      setColorMode(stored);
+    if (isOpen) {
+      if (activo) {
+        reset({
+          categoria_Id: activo.categoria_Id,
+          codigo_Activo: activo.codigo_Activo,
+          nombre: activo.nombre,
+          descripcion: activo.descripcion || '',
+          marca: activo.marca || '',
+          modelo: activo.modelo || '',
+          numero_Serie: activo.numero_Serie || '',
+          fecha_Adquisicion: activo.fecha_Adquisicion?.split('T')[0] || '',
+          valor_Adquisicion: activo.valor_Adquisicion || 0,
+          vida_Util_Meses: activo.vida_Util_Meses || 0,
+          ubicacion_Fisica: activo.ubicacion_Fisica || '',
+          imagen_URL: activo.imagen_URL || '',
+          observaciones: activo.observaciones || '',
+        });
+      } else {
+        reset({
+          categoria_Id: 0,
+          codigo_Activo: '',
+          nombre: '',
+          descripcion: '',
+          marca: '',
+          modelo: '',
+          numero_Serie: '',
+          fecha_Adquisicion: '',
+          valor_Adquisicion: 0,
+          vida_Util_Meses: 0,
+          ubicacion_Fisica: '',
+          imagen_URL: '',
+          observaciones: '',
+        });
+      }
     }
-  }, []);
+  }, [activo, isOpen, reset]);
 
-  useEffect(() => {
-    if (activo) {
-      setFormData({
-        categoria_Id: activo.categoria_Id,
-        codigo_Activo: activo.codigo_Activo,
-        nombre: activo.nombre,
-        descripcion: activo.descripcion || '',
-        marca: activo.marca || '',
-        modelo: activo.modelo || '',
-        numero_Serie: activo.numero_Serie || '',
-        fecha_Adquisicion: activo.fecha_Adquisicion?.split('T')[0] || '',
-        valor_Adquisicion: activo.valor_Adquisicion || 0,
-        vida_Util_Meses: activo.vida_Util_Meses || 0,
-        ubicacion_Fisica: activo.ubicacion_Fisica || '',
-        imagen_URL: activo.imagen_URL || '',
-        observaciones: activo.observaciones || '',
-      });
-    } else {
-      setFormData({
-        categoria_Id: 0,
-        codigo_Activo: '',
-        nombre: '',
-        descripcion: '',
-        marca: '',
-        modelo: '',
-        numero_Serie: '',
-        fecha_Adquisicion: '',
-        valor_Adquisicion: 0,
-        vida_Util_Meses: 0,
-        ubicacion_Fisica: '',
-        imagen_URL: '',
-        observaciones: '',
-      });
-    }
-    setErrors({});
-  }, [activo, isOpen]);
+  // Obtener color mode y colores del hook personalizado
+  const { bgColor, inputBg, borderColor } = useColorModeLocal();
 
-  const validate = () => {
-    const newErrors: Record<string, string> = {};
-    
-    if (!formData.categoria_Id) newErrors.categoria_Id = 'Debe seleccionar una categoría';
-    if (!formData.codigo_Activo.trim()) newErrors.codigo_Activo = 'El código es requerido';
-    if (!formData.nombre.trim()) newErrors.nombre = 'El nombre es requerido';
-    
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!validate()) return;
-
+  const onSubmit = async (data: ActivoFormData) => {
     try {
       if (isEdit) {
         await updateActivo({
           id: activo.id,
-          categoria_Id: formData.categoria_Id,
-          codigo_Activo: formData.codigo_Activo,
-          nombre: formData.nombre,
-          descripcion: formData.descripcion || undefined,
-          marca: formData.marca || undefined,
-          modelo: formData.modelo || undefined,
-          numero_Serie: formData.numero_Serie || undefined,
+          categoria_Id: data.categoria_Id,
+          codigo_Activo: data.codigo_Activo,
+          nombre: data.nombre,
+          descripcion: data.descripcion || undefined,
+          marca: data.marca || undefined,
+          modelo: data.modelo || undefined,
+          numero_Serie: data.numero_Serie || undefined,
           estado: activo.estado,
-          fecha_Adquisicion: formData.fecha_Adquisicion || undefined,
-          valor_Adquisicion: formData.valor_Adquisicion || undefined,
-          vida_Util_Meses: formData.vida_Util_Meses || undefined,
-          ubicacion_Fisica: formData.ubicacion_Fisica || undefined,
-          imagen_URL: formData.imagen_URL || undefined,
-          observaciones: formData.observaciones || undefined,
+          fecha_Adquisicion: data.fecha_Adquisicion || undefined,
+          valor_Adquisicion: data.valor_Adquisicion || undefined,
+          vida_Util_Meses: data.vida_Util_Meses || undefined,
+          ubicacion_Fisica: data.ubicacion_Fisica || undefined,
+          imagen_URL: data.imagen_URL || undefined,
+          observaciones: data.observaciones || undefined,
         }).unwrap();
         
         toast({
           title: 'Activo actualizado',
-          description: `El activo ${formData.codigo_Activo} fue actualizado exitosamente.`,
+          description: `El activo ${data.codigo_Activo} fue actualizado exitosamente.`,
           status: 'success',
           duration: 3000,
           isClosable: true,
         });
       } else {
         await createActivo({
-          categoria_Id: formData.categoria_Id,
-          codigo_Activo: formData.codigo_Activo,
-          nombre: formData.nombre,
-          descripcion: formData.descripcion || undefined,
-          marca: formData.marca || undefined,
-          modelo: formData.modelo || undefined,
-          numero_Serie: formData.numero_Serie || undefined,
-          fecha_Adquisicion: formData.fecha_Adquisicion || undefined,
-          valor_Adquisicion: formData.valor_Adquisicion || undefined,
-          vida_Util_Meses: formData.vida_Util_Meses || undefined,
-          ubicacion_Fisica: formData.ubicacion_Fisica || undefined,
-          imagen_URL: formData.imagen_URL || undefined,
-          observaciones: formData.observaciones || undefined,
+          categoria_Id: data.categoria_Id,
+          codigo_Activo: data.codigo_Activo,
+          nombre: data.nombre,
+          descripcion: data.descripcion || undefined,
+          marca: data.marca || undefined,
+          modelo: data.modelo || undefined,
+          numero_Serie: data.numero_Serie || undefined,
+          fecha_Adquisicion: data.fecha_Adquisicion || undefined,
+          valor_Adquisicion: data.valor_Adquisicion || undefined,
+          vida_Util_Meses: data.vida_Util_Meses || undefined,
+          ubicacion_Fisica: data.ubicacion_Fisica || undefined,
+          imagen_URL: data.imagen_URL || undefined,
+          observaciones: data.observaciones || undefined,
         }).unwrap();
         
         toast({
           title: 'Activo creado',
-          description: `El activo ${formData.codigo_Activo} fue creado exitosamente.`,
+          description: `El activo ${data.codigo_Activo} fue creado exitosamente.`,
           status: 'success',
           duration: 3000,
           isClosable: true,
@@ -176,9 +169,10 @@ export const ActivoModal = ({ isOpen, onClose, activo }: ActivoModalProps) => {
       
       handleClose();
     } catch (error: any) {
+      const errorMessage = error?.data?.message || error?.message || 'Ocurrió un error al guardar el activo';
       toast({
         title: 'Error',
-        description: error?.data?.message || 'Ocurrió un error al guardar el activo',
+        description: errorMessage,
         status: 'error',
         duration: 5000,
         isClosable: true,
@@ -187,12 +181,9 @@ export const ActivoModal = ({ isOpen, onClose, activo }: ActivoModalProps) => {
   };
 
   const handleClose = () => {
+    reset();
     onClose();
   };
-
-  const bgColor = colorMode === 'dark' ? '#1a2035' : colorMode === 'blue' ? '#192734' : '#ffffff';
-  const inputBg = colorMode === 'dark' ? '#242b3d' : colorMode === 'blue' ? '#1e3140' : '#f5f6f8';
-  const borderColor = colorMode === 'dark' ? '#2d3548' : colorMode === 'blue' ? '#2a4255' : '#e2e8f0';
 
   return (
     <Modal 
@@ -210,7 +201,7 @@ export const ActivoModal = ({ isOpen, onClose, activo }: ActivoModalProps) => {
         m={{ base: 0, md: 4 }}
         overflow="auto"
       >
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit(onSubmit)}>
           <ModalHeader fontSize={{ base: "lg", md: "xl" }}>
             {isEdit ? 'Editar Activo' : 'Nuevo Activo'}
           </ModalHeader>
@@ -223,8 +214,7 @@ export const ActivoModal = ({ isOpen, onClose, activo }: ActivoModalProps) => {
                   <FormControl isRequired isInvalid={!!errors.categoria_Id}>
                     <FormLabel fontSize={{ base: "sm", md: "md" }}>Categoría</FormLabel>
                     <Select
-                      value={formData.categoria_Id}
-                      onChange={(e) => setFormData({ ...formData, categoria_Id: Number(e.target.value) })}
+                      {...register('categoria_Id', { valueAsNumber: true })}
                       bg={inputBg}
                       borderColor={borderColor}
                       placeholder="Seleccione una categoría"
@@ -236,7 +226,7 @@ export const ActivoModal = ({ isOpen, onClose, activo }: ActivoModalProps) => {
                         </option>
                       ))}
                     </Select>
-                    <FormErrorMessage>{errors.categoria_Id}</FormErrorMessage>
+                    <FormErrorMessage>{errors.categoria_Id?.message}</FormErrorMessage>
                   </FormControl>
                 </GridItem>
 
@@ -244,13 +234,12 @@ export const ActivoModal = ({ isOpen, onClose, activo }: ActivoModalProps) => {
                   <FormControl isRequired isInvalid={!!errors.codigo_Activo}>
                     <FormLabel>Código del Activo</FormLabel>
                     <Input
-                      value={formData.codigo_Activo}
-                      onChange={(e) => setFormData({ ...formData, codigo_Activo: e.target.value })}
+                      {...register('codigo_Activo')}
                       placeholder="ACT-001"
                       bg={inputBg}
                       borderColor={borderColor}
                     />
-                    <FormErrorMessage>{errors.codigo_Activo}</FormErrorMessage>
+                    <FormErrorMessage>{errors.codigo_Activo?.message}</FormErrorMessage>
                   </FormControl>
                 </GridItem>
               </Grid>
@@ -258,141 +247,154 @@ export const ActivoModal = ({ isOpen, onClose, activo }: ActivoModalProps) => {
               <FormControl isRequired isInvalid={!!errors.nombre}>
                 <FormLabel>Nombre del Activo</FormLabel>
                 <Input
-                  value={formData.nombre}
-                  onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
+                  {...register('nombre')}
                   placeholder="Proyector LED 4K"
                   bg={inputBg}
                   borderColor={borderColor}
                 />
-                <FormErrorMessage>{errors.nombre}</FormErrorMessage>
+                <FormErrorMessage>{errors.nombre?.message}</FormErrorMessage>
               </FormControl>
 
-              <FormControl>
+              <FormControl isInvalid={!!errors.descripcion}>
                 <FormLabel>Descripción</FormLabel>
                 <Textarea
-                  value={formData.descripcion}
-                  onChange={(e) => setFormData({ ...formData, descripcion: e.target.value })}
+                  {...register('descripcion')}
                   placeholder="Descripción detallada del activo"
                   bg={inputBg}
                   borderColor={borderColor}
                   rows={3}
                 />
+                <FormErrorMessage>{errors.descripcion?.message}</FormErrorMessage>
               </FormControl>
 
               <Grid templateColumns="repeat(3, 1fr)" gap={4} w="full">
                 <GridItem>
-                  <FormControl>
+                  <FormControl isInvalid={!!errors.marca}>
                     <FormLabel>Marca</FormLabel>
                     <Input
-                      value={formData.marca}
-                      onChange={(e) => setFormData({ ...formData, marca: e.target.value })}
+                      {...register('marca')}
                       placeholder="Sony"
                       bg={inputBg}
                       borderColor={borderColor}
                     />
+                    <FormErrorMessage>{errors.marca?.message}</FormErrorMessage>
                   </FormControl>
                 </GridItem>
 
                 <GridItem>
-                  <FormControl>
+                  <FormControl isInvalid={!!errors.modelo}>
                     <FormLabel>Modelo</FormLabel>
                     <Input
-                      value={formData.modelo}
-                      onChange={(e) => setFormData({ ...formData, modelo: e.target.value })}
+                      {...register('modelo')}
                       placeholder="VPL-VW5000ES"
                       bg={inputBg}
                       borderColor={borderColor}
                     />
+                    <FormErrorMessage>{errors.modelo?.message}</FormErrorMessage>
                   </FormControl>
                 </GridItem>
 
                 <GridItem>
-                  <FormControl>
+                  <FormControl isInvalid={!!errors.numero_Serie}>
                     <FormLabel>Número de Serie</FormLabel>
                     <Input
-                      value={formData.numero_Serie}
-                      onChange={(e) => setFormData({ ...formData, numero_Serie: e.target.value })}
+                      {...register('numero_Serie')}
                       placeholder="SN123456789"
                       bg={inputBg}
                       borderColor={borderColor}
                     />
+                    <FormErrorMessage>{errors.numero_Serie?.message}</FormErrorMessage>
                   </FormControl>
                 </GridItem>
               </Grid>
 
               <Grid templateColumns="repeat(3, 1fr)" gap={4} w="full">
                 <GridItem>
-                  <FormControl>
+                  <FormControl isInvalid={!!errors.fecha_Adquisicion}>
                     <FormLabel>Fecha de Adquisición</FormLabel>
                     <Input
                       type="date"
-                      value={formData.fecha_Adquisicion}
-                      onChange={(e) => setFormData({ ...formData, fecha_Adquisicion: e.target.value })}
+                      {...register('fecha_Adquisicion')}
                       bg={inputBg}
                       borderColor={borderColor}
                     />
+                    <FormErrorMessage>{errors.fecha_Adquisicion?.message}</FormErrorMessage>
                   </FormControl>
                 </GridItem>
 
                 <GridItem>
-                  <FormControl>
+                  <FormControl isInvalid={!!errors.valor_Adquisicion}>
                     <FormLabel>Valor de Adquisición ($)</FormLabel>
-                    <NumberInput
-                      value={formData.valor_Adquisicion}
-                      onChange={(_, val) => setFormData({ ...formData, valor_Adquisicion: val })}
-                      min={0}
-                    >
-                      <NumberInputField bg={inputBg} borderColor={borderColor} />
-                    </NumberInput>
+                    <Controller
+                      name="valor_Adquisicion"
+                      control={control}
+                      render={({ field: { onChange, value } }) => (
+                        <NumberInput
+                          value={value}
+                          onChange={(_, val) => onChange(val)}
+                          min={0}
+                        >
+                          <NumberInputField bg={inputBg} borderColor={borderColor} />
+                        </NumberInput>
+                      )}
+                    />
+                    <FormErrorMessage>{errors.valor_Adquisicion?.message}</FormErrorMessage>
                   </FormControl>
                 </GridItem>
 
                 <GridItem>
-                  <FormControl>
+                  <FormControl isInvalid={!!errors.vida_Util_Meses}>
                     <FormLabel>Vida Útil (meses)</FormLabel>
-                    <NumberInput
-                      value={formData.vida_Util_Meses}
-                      onChange={(_, val) => setFormData({ ...formData, vida_Util_Meses: val })}
-                      min={0}
-                    >
-                      <NumberInputField bg={inputBg} borderColor={borderColor} />
-                    </NumberInput>
+                    <Controller
+                      name="vida_Util_Meses"
+                      control={control}
+                      render={({ field: { onChange, value } }) => (
+                        <NumberInput
+                          value={value}
+                          onChange={(_, val) => onChange(val)}
+                          min={0}
+                        >
+                          <NumberInputField bg={inputBg} borderColor={borderColor} />
+                        </NumberInput>
+                      )}
+                    />
+                    <FormErrorMessage>{errors.vida_Util_Meses?.message}</FormErrorMessage>
                   </FormControl>
                 </GridItem>
               </Grid>
 
-              <FormControl>
+              <FormControl isInvalid={!!errors.ubicacion_Fisica}>
                 <FormLabel>Ubicación Física</FormLabel>
                 <Input
-                  value={formData.ubicacion_Fisica}
-                  onChange={(e) => setFormData({ ...formData, ubicacion_Fisica: e.target.value })}
+                  {...register('ubicacion_Fisica')}
                   placeholder="Bodega Principal - Rack A3"
                   bg={inputBg}
                   borderColor={borderColor}
                 />
+                <FormErrorMessage>{errors.ubicacion_Fisica?.message}</FormErrorMessage>
               </FormControl>
 
-              <FormControl>
+              <FormControl isInvalid={!!errors.imagen_URL}>
                 <FormLabel>URL de Imagen</FormLabel>
                 <Input
-                  value={formData.imagen_URL}
-                  onChange={(e) => setFormData({ ...formData, imagen_URL: e.target.value })}
+                  {...register('imagen_URL')}
                   placeholder="https://ejemplo.com/imagen.jpg"
                   bg={inputBg}
                   borderColor={borderColor}
                 />
+                <FormErrorMessage>{errors.imagen_URL?.message}</FormErrorMessage>
               </FormControl>
 
-              <FormControl>
+              <FormControl isInvalid={!!errors.observaciones}>
                 <FormLabel>Observaciones</FormLabel>
                 <Textarea
-                  value={formData.observaciones}
-                  onChange={(e) => setFormData({ ...formData, observaciones: e.target.value })}
+                  {...register('observaciones')}
                   placeholder="Notas adicionales sobre el activo"
                   bg={inputBg}
                   borderColor={borderColor}
                   rows={3}
                 />
+                <FormErrorMessage>{errors.observaciones?.message}</FormErrorMessage>
               </FormControl>
             </VStack>
           </ModalBody>

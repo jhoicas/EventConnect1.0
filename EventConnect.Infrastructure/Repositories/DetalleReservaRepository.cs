@@ -1,6 +1,6 @@
 using Dapper;
 using EventConnect.Domain.Entities;
-using MySqlConnector;
+using Npgsql;
 
 namespace EventConnect.Infrastructure.Repositories;
 
@@ -12,7 +12,7 @@ public class DetalleReservaRepository : RepositoryBase<DetalleReserva>
 
     public async Task<IEnumerable<DetalleReserva>> GetByReservaIdAsync(int reservaId)
     {
-        using var connection = new MySqlConnection(_connectionString);
+        using var connection = new NpgsqlConnection(_connectionString);
         var sql = @"
             SELECT * FROM detalle_reserva 
             WHERE Reserva_Id = @ReservaId 
@@ -23,7 +23,7 @@ public class DetalleReservaRepository : RepositoryBase<DetalleReserva>
 
     public async Task<IEnumerable<DetalleReserva>> GetByProductoIdAsync(int productoId)
     {
-        using var connection = new MySqlConnection(_connectionString);
+        using var connection = new NpgsqlConnection(_connectionString);
         var sql = @"
             SELECT * FROM detalle_reserva 
             WHERE Producto_Id = @ProductoId 
@@ -34,7 +34,7 @@ public class DetalleReservaRepository : RepositoryBase<DetalleReserva>
 
     public async Task<IEnumerable<DetalleReserva>> GetByActivoIdAsync(int activoId)
     {
-        using var connection = new MySqlConnection(_connectionString);
+        using var connection = new NpgsqlConnection(_connectionString);
         var sql = @"
             SELECT * FROM detalle_reserva 
             WHERE Activo_Id = @ActivoId 
@@ -45,7 +45,7 @@ public class DetalleReservaRepository : RepositoryBase<DetalleReserva>
 
     public async Task<bool> ValidarIntegridadAsync(int detalleId)
     {
-        using var connection = new MySqlConnection(_connectionString);
+        using var connection = new NpgsqlConnection(_connectionString);
         var sql = @"
             SELECT 
                 CASE 
@@ -70,7 +70,7 @@ public class DetalleReservaRepository : RepositoryBase<DetalleReserva>
     /// </summary>
     public async Task<IEnumerable<dynamic>> GetDetallesConInfoCompletaAsync(int reservaId)
     {
-        using var connection = new MySqlConnection(_connectionString);
+        using var connection = new NpgsqlConnection(_connectionString);
         var sql = @"
             SELECT 
                 dr.*,
@@ -104,7 +104,7 @@ public class DetalleReservaRepository : RepositoryBase<DetalleReserva>
     /// </summary>
     public async Task<IEnumerable<dynamic>> GetDetallesConProblemasIntegridadAsync()
     {
-        using var connection = new MySqlConnection(_connectionString);
+        using var connection = new NpgsqlConnection(_connectionString);
         var sql = @"
             SELECT 
                 dr.Id AS Detalle_Id,
@@ -135,7 +135,7 @@ public class DetalleReservaRepository : RepositoryBase<DetalleReserva>
     /// </summary>
     public async Task<int> CorregirIntegridadAsync()
     {
-        using var connection = new MySqlConnection(_connectionString);
+        using var connection = new NpgsqlConnection(_connectionString);
         var sql = @"
             UPDATE detalle_reserva dr
             INNER JOIN activo a ON dr.Activo_Id = a.Id

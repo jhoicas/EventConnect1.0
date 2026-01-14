@@ -1,3 +1,5 @@
+'use client';
+
 import {
   Modal,
   ModalOverlay,
@@ -18,8 +20,12 @@ import {
   Text,
   Box,
 } from '@chakra-ui/react';
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
 import { useCreateCategoriaMutation, useUpdateCategoriaMutation, type Categoria } from '../store/api/categoriaApi';
+import { categoriaSchema, type CategoriaFormData } from '../lib/validations/categoriaSchema';
+import { useColorModeLocal } from '../hooks/useColorModeLocal';
 
 const ICONOS_DISPONIBLES = [
   { value: 'chair', label: '🪑 Silla (chair)' },
@@ -53,85 +59,85 @@ interface CategoriaModalProps {
 }
 
 export const CategoriaModal = ({ isOpen, onClose, categoria }: CategoriaModalProps) => {
-  const [colorMode, setColorMode] = useState<'light' | 'dark' | 'blue'>('light');
   const toast = useToast();
-  
-  const [nombre, setNombre] = useState('');
-  const [descripcion, setDescripcion] = useState('');
-  const [icono, setIcono] = useState('');
-  const [color, setColor] = useState('#3B82F6');
-  const [errors, setErrors] = useState({ nombre: '' });
-
   const [createCategoria, { isLoading: isCreating }] = useCreateCategoriaMutation();
   const [updateCategoria, { isLoading: isUpdating }] = useUpdateCategoriaMutation();
 
   const isEdit = !!categoria;
   const isLoading = isCreating || isUpdating;
 
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+    reset,
+    watch,
+  } = useForm<CategoriaFormData>({
+    resolver: zodResolver(categoriaSchema),
+    defaultValues: {
+      nombre: '',
+      descripcion: '',
+      icono: '',
+      color: '#3B82F6',
+    },
+  });
+
+  const color = watch('color');
+
+  // Resetear formulario cuando cambia la categoría o se abre/cierra el modal
   useEffect(() => {
-    const stored = localStorage.getItem('chakra-ui-color-mode');
-    if (stored === 'light' || stored === 'dark' || stored === 'blue') {
-      setColorMode(stored);
+    if (isOpen) {
+      if (categoria) {
+        reset({
+          nombre: categoria.nombre,
+          descripcion: categoria.descripcion || '',
+          icono: categoria.icono || '',
+          color: categoria.color || '#3B82F6',
+        });
+      } else {
+        reset({
+          nombre: '',
+          descripcion: '',
+          icono: '',
+          color: '#3B82F6',
+        });
+      }
     }
-  }, []);
+  }, [categoria, isOpen, reset]);
 
-  useEffect(() => {
-    if (categoria) {
-      setNombre(categoria.nombre);
-      setDescripcion(categoria.descripcion || '');
-      setIcono(categoria.icono || '');
-      setColor(categoria.color || '#3B82F6');
-    } else {
-      setNombre('');
-      setDescripcion('');
-      setIcono('');
-      setColor('#3B82F6');
-    }
-    setErrors({ nombre: '' });
-  }, [categoria, isOpen]);
+  // Obtener color mode y colores del hook personalizado
+  const { bgColor, inputBg, borderColor } = useColorModeLocal();
 
-  const validate = () => {
-    const newErrors = { nombre: '' };
-    if (!nombre.trim()) {
-      newErrors.nombre = 'El nombre es requerido';
-    }
-    setErrors(newErrors);
-    return !newErrors.nombre;
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!validate()) return;
-
+  const onSubmit = async (data: CategoriaFormData) => {
     try {
       if (isEdit) {
         await updateCategoria({
           id: categoria.id,
-          nombre,
-          descripcion,
-          icono,
-          color,
+          nombre: data.nombre,
+          descripcion: data.descripcion || undefined,
+          icono: data.icono || undefined,
+          color: data.color || undefined,
           activo: categoria.activo,
         }).unwrap();
         
         toast({
           title: 'Categoría actualizada',
-          description: `La categoría "${nombre}" fue actualizada exitosamente.`,
+          description: `La categoría "${data.nombre}" fue actualizada exitosamente.`,
           status: 'success',
           duration: 3000,
           isClosable: true,
         });
       } else {
         await createCategoria({
-          nombre,
-          descripcion,
-          icono,
-          color,
+          nombre: data.nombre,
+          descripcion: data.descripcion || undefined,
+          icono: data.icono || undefined,
+          color: data.color || undefined,
         }).unwrap();
         
         toast({
           title: 'Categoría creada',
-          description: `La categoría "${nombre}" fue creada exitosamente.`,
+          description: `La categoría "${data.nombre}" fue creada exitosamente.`,
           status: 'success',
           duration: 3000,
           isClosable: true,
@@ -140,9 +146,10 @@ export const CategoriaModal = ({ isOpen, onClose, categoria }: CategoriaModalPro
       
       handleClose();
     } catch (error: any) {
+      const errorMessage = error?.data?.message || error?.message || 'Ocurrió un error al guardar la categoría';
       toast({
         title: 'Error',
-        description: error?.data?.message || 'Ocurrió un error al guardar la categoría',
+        description: errorMessage,
         status: 'error',
         duration: 5000,
         isClosable: true,
@@ -151,17 +158,12 @@ export const CategoriaModal = ({ isOpen, onClose, categoria }: CategoriaModalPro
   };
 
   const handleClose = () => {
-    setNombre('');
-    setDescripcion('');
-    setIcono('');
-    setColor('#3B82F6');
-    setErrors({ nombre: '' });
+    reset();
     onClose();
   };
 
-  const bgColor = colorMode === 'dark' ? '#1a2035' : colorMode === 'blue' ? '#192734' : '#ffffff';
-  const inputBg = colorMode === 'dark' ? '#242b3d' : colorMode === 'blue' ? '#1e3140' : '#f5f6f8';
-  const borderColor = colorMode === 'dark' ? '#2d3548' : colorMode === 'blue' ? '#2a4255' : '#e2e8f0';
+  // Obtener color mode y colores del hook personalizado
+  const { bgColor, inputBg, borderColor } = useColorModeLocal();
 
   return (
     <Modal isOpen={isOpen} onClose={handleClose} size={{ base: "full", md: "md" }} scrollBehavior="inside">
@@ -174,7 +176,7 @@ export const CategoriaModal = ({ isOpen, onClose, categoria }: CategoriaModalPro
         my={{ base: 0, md: "auto" }}
         maxH={{ base: "100vh", md: "90vh" }}
       >
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit(onSubmit)}>
           <ModalHeader fontSize={{ base: "lg", md: "xl" }}>
             {isEdit ? 'Editar Categoría' : 'Nueva Categoría'}
           </ModalHeader>
@@ -184,22 +186,20 @@ export const CategoriaModal = ({ isOpen, onClose, categoria }: CategoriaModalPro
             <FormControl isRequired isInvalid={!!errors.nombre} mb={4}>
               <FormLabel fontSize={{ base: "sm", md: "md" }}>Nombre</FormLabel>
               <Input
-                value={nombre}
-                onChange={(e) => setNombre(e.target.value)}
+                {...register('nombre')}
                 placeholder="Ej: Sillas, Mesas, Vajillas"
                 bg={inputBg}
                 borderColor={borderColor}
                 _hover={{ borderColor: 'brand.300' }}
                 _focus={{ borderColor: 'brand.400', boxShadow: '0 0 0 1px rgba(107, 163, 245, 0.3)' }}
               />
-              <FormErrorMessage>{errors.nombre}</FormErrorMessage>
+              <FormErrorMessage>{errors.nombre?.message}</FormErrorMessage>
             </FormControl>
 
-            <FormControl>
+            <FormControl isInvalid={!!errors.descripcion}>
               <FormLabel fontSize={{ base: "sm", md: "md" }}>Descripción</FormLabel>
               <Textarea
-                value={descripcion}
-                onChange={(e) => setDescripcion(e.target.value)}
+                {...register('descripcion')}
                 placeholder="Descripción opcional de la categoría"
                 bg={inputBg}
                 borderColor={borderColor}
@@ -208,13 +208,13 @@ export const CategoriaModal = ({ isOpen, onClose, categoria }: CategoriaModalPro
                 rows={3}
                 size={{ base: "sm", md: "md" }}
               />
+              <FormErrorMessage>{errors.descripcion?.message}</FormErrorMessage>
             </FormControl>
 
-            <FormControl mt={4}>
+            <FormControl mt={4} isInvalid={!!errors.icono}>
               <FormLabel fontSize={{ base: "sm", md: "md" }}>Icono</FormLabel>
               <Select
-                value={icono}
-                onChange={(e) => setIcono(e.target.value)}
+                {...register('icono')}
                 placeholder="Selecciona un icono"
                 bg={inputBg}
                 borderColor={borderColor}
@@ -222,21 +222,22 @@ export const CategoriaModal = ({ isOpen, onClose, categoria }: CategoriaModalPro
                 _focus={{ borderColor: 'brand.400', boxShadow: '0 0 0 1px rgba(107, 163, 245, 0.3)' }}
                 size={{ base: "sm", md: "md" }}
               >
+                <option value="">Sin icono</option>
                 {ICONOS_DISPONIBLES.map((icon) => (
                   <option key={icon.value} value={icon.value}>
                     {icon.label}
                   </option>
                 ))}
               </Select>
+              <FormErrorMessage>{errors.icono?.message}</FormErrorMessage>
             </FormControl>
 
-            <FormControl mt={4}>
+            <FormControl mt={4} isInvalid={!!errors.color}>
               <FormLabel fontSize={{ base: "sm", md: "md" }}>Color</FormLabel>
               <HStack spacing={3} flexWrap={{ base: "wrap", md: "nowrap" }}>
                 <Input
                   type="color"
-                  value={color}
-                  onChange={(e) => setColor(e.target.value)}
+                  {...register('color')}
                   bg={inputBg}
                   borderColor={borderColor}
                   width={{ base: "60px", md: "80px" }}
@@ -255,6 +256,7 @@ export const CategoriaModal = ({ isOpen, onClose, categoria }: CategoriaModalPro
                   {color}
                 </Text>
               </HStack>
+              <FormErrorMessage>{errors.color?.message}</FormErrorMessage>
             </FormControl>
           </ModalBody>
 

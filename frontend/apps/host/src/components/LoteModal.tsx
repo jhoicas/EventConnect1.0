@@ -21,10 +21,14 @@ import {
   Grid,
   GridItem,
 } from '@chakra-ui/react';
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
+import { useForm, Controller } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
 import { useCreateLoteMutation, useUpdateLoteMutation, type Lote } from '../store/api/loteApi';
 import { useGetProductosQuery } from '../store/api/productoApi';
 import { useGetBodegasQuery } from '../store/api/bodegaApi';
+import { loteSchema, type LoteFormData } from '../lib/validations/loteSchema';
+import { useColorModeLocal } from '../hooks/useColorModeLocal';
 
 interface LoteModalProps {
   isOpen: boolean;
@@ -33,114 +37,102 @@ interface LoteModalProps {
 }
 
 export const LoteModal = ({ isOpen, onClose, lote }: LoteModalProps) => {
-  const [colorMode, setColorMode] = useState<'light' | 'dark' | 'blue'>('light');
   const toast = useToast();
-  
   const { data: productos = [] } = useGetProductosQuery();
   const { data: bodegas = [] } = useGetBodegasQuery();
   
-  const [formData, setFormData] = useState({
-    producto_Id: 0,
-    bodega_Id: 0,
-    codigo_Lote: '',
-    fecha_Fabricacion: '',
-    fecha_Vencimiento: '',
-    cantidad_Inicial: 0,
-    costo_Unitario: 0,
-  });
-
-  const [errors, setErrors] = useState<Record<string, string>>({});
-
   const [createLote, { isLoading: isCreating }] = useCreateLoteMutation();
   const [updateLote, { isLoading: isUpdating }] = useUpdateLoteMutation();
 
   const isEdit = !!lote;
   const isLoading = isCreating || isUpdating;
 
+  const {
+    register,
+    handleSubmit,
+    control,
+    formState: { errors },
+    reset,
+  } = useForm<LoteFormData>({
+    resolver: zodResolver(loteSchema),
+    defaultValues: {
+      producto_Id: 0,
+      bodega_Id: 0,
+      codigo_Lote: '',
+      fecha_Fabricacion: '',
+      fecha_Vencimiento: '',
+      cantidad_Inicial: 0,
+      costo_Unitario: 0,
+    },
+  });
+
+  // Resetear formulario cuando cambia el lote o se abre/cierra el modal
   useEffect(() => {
-    const stored = localStorage.getItem('chakra-ui-color-mode');
-    if (stored === 'light' || stored === 'dark' || stored === 'blue') {
-      setColorMode(stored);
+    if (isOpen) {
+      if (lote) {
+        reset({
+          producto_Id: lote.producto_Id,
+          bodega_Id: lote.bodega_Id || 0,
+          codigo_Lote: lote.codigo_Lote,
+          fecha_Fabricacion: lote.fecha_Fabricacion?.split('T')[0] || '',
+          fecha_Vencimiento: lote.fecha_Vencimiento?.split('T')[0] || '',
+          cantidad_Inicial: lote.cantidad_Inicial,
+          costo_Unitario: lote.costo_Unitario,
+        });
+      } else {
+        reset({
+          producto_Id: 0,
+          bodega_Id: 0,
+          codigo_Lote: '',
+          fecha_Fabricacion: '',
+          fecha_Vencimiento: '',
+          cantidad_Inicial: 0,
+          costo_Unitario: 0,
+        });
+      }
     }
-  }, []);
+  }, [lote, isOpen, reset]);
 
-  useEffect(() => {
-    if (lote) {
-      setFormData({
-        producto_Id: lote.producto_Id,
-        bodega_Id: lote.bodega_Id || 0,
-        codigo_Lote: lote.codigo_Lote,
-        fecha_Fabricacion: lote.fecha_Fabricacion?.split('T')[0] || '',
-        fecha_Vencimiento: lote.fecha_Vencimiento?.split('T')[0] || '',
-        cantidad_Inicial: lote.cantidad_Inicial,
-        costo_Unitario: lote.costo_Unitario,
-      });
-    } else {
-      setFormData({
-        producto_Id: 0,
-        bodega_Id: 0,
-        codigo_Lote: '',
-        fecha_Fabricacion: '',
-        fecha_Vencimiento: '',
-        cantidad_Inicial: 0,
-        costo_Unitario: 0,
-      });
-    }
-    setErrors({});
-  }, [lote, isOpen]);
+  // Obtener color mode y colores del hook personalizado
+  const { bgColor, inputBg, borderColor } = useColorModeLocal();
 
-  const validate = () => {
-    const newErrors: Record<string, string> = {};
-    
-    if (!formData.producto_Id) newErrors.producto_Id = 'Debe seleccionar un producto';
-    if (!formData.codigo_Lote.trim()) newErrors.codigo_Lote = 'El código de lote es requerido';
-    if (formData.cantidad_Inicial <= 0) newErrors.cantidad_Inicial = 'La cantidad debe ser mayor a 0';
-    if (formData.costo_Unitario <= 0) newErrors.costo_Unitario = 'El costo debe ser mayor a 0';
-    
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!validate()) return;
-
+  const onSubmit = async (data: LoteFormData) => {
     try {
       if (isEdit) {
         await updateLote({
           id: lote.id,
-          producto_Id: formData.producto_Id,
-          bodega_Id: formData.bodega_Id || undefined,
-          codigo_Lote: formData.codigo_Lote,
-          fecha_Fabricacion: formData.fecha_Fabricacion || undefined,
-          fecha_Vencimiento: formData.fecha_Vencimiento || undefined,
-          cantidad_Inicial: formData.cantidad_Inicial,
+          producto_Id: data.producto_Id,
+          bodega_Id: data.bodega_Id || undefined,
+          codigo_Lote: data.codigo_Lote,
+          fecha_Fabricacion: data.fecha_Fabricacion || undefined,
+          fecha_Vencimiento: data.fecha_Vencimiento || undefined,
+          cantidad_Inicial: data.cantidad_Inicial,
           cantidad_Actual: lote.cantidad_Actual,
-          costo_Unitario: formData.costo_Unitario,
+          costo_Unitario: data.costo_Unitario,
           estado: lote.estado,
         }).unwrap();
         
         toast({
           title: 'Lote actualizado',
-          description: `El lote ${formData.codigo_Lote} fue actualizado exitosamente.`,
+          description: `El lote ${data.codigo_Lote} fue actualizado exitosamente.`,
           status: 'success',
           duration: 3000,
           isClosable: true,
         });
       } else {
         await createLote({
-          producto_Id: formData.producto_Id,
-          bodega_Id: formData.bodega_Id || undefined,
-          codigo_Lote: formData.codigo_Lote,
-          fecha_Fabricacion: formData.fecha_Fabricacion || undefined,
-          fecha_Vencimiento: formData.fecha_Vencimiento || undefined,
-          cantidad_Inicial: formData.cantidad_Inicial,
-          costo_Unitario: formData.costo_Unitario,
+          producto_Id: data.producto_Id,
+          bodega_Id: data.bodega_Id || undefined,
+          codigo_Lote: data.codigo_Lote,
+          fecha_Fabricacion: data.fecha_Fabricacion || undefined,
+          fecha_Vencimiento: data.fecha_Vencimiento || undefined,
+          cantidad_Inicial: data.cantidad_Inicial,
+          costo_Unitario: data.costo_Unitario,
         }).unwrap();
         
         toast({
           title: 'Lote creado',
-          description: `El lote ${formData.codigo_Lote} fue creado exitosamente.`,
+          description: `El lote ${data.codigo_Lote} fue creado exitosamente.`,
           status: 'success',
           duration: 3000,
           isClosable: true,
@@ -149,9 +141,10 @@ export const LoteModal = ({ isOpen, onClose, lote }: LoteModalProps) => {
       
       handleClose();
     } catch (error: any) {
+      const errorMessage = error?.data?.message || error?.message || 'Ocurrió un error al guardar el lote';
       toast({
         title: 'Error',
-        description: error?.data?.message || 'Ocurrió un error al guardar el lote',
+        description: errorMessage,
         status: 'error',
         duration: 5000,
         isClosable: true,
@@ -160,12 +153,9 @@ export const LoteModal = ({ isOpen, onClose, lote }: LoteModalProps) => {
   };
 
   const handleClose = () => {
+    reset();
     onClose();
   };
-
-  const bgColor = colorMode === 'dark' ? '#1a2035' : colorMode === 'blue' ? '#192734' : '#ffffff';
-  const inputBg = colorMode === 'dark' ? '#242b3d' : colorMode === 'blue' ? '#1e3140' : '#f5f6f8';
-  const borderColor = colorMode === 'dark' ? '#2d3548' : colorMode === 'blue' ? '#2a4255' : '#e2e8f0';
 
   return (
     <Modal 
@@ -182,7 +172,7 @@ export const LoteModal = ({ isOpen, onClose, lote }: LoteModalProps) => {
         m={{ base: 0, md: 4 }}
         maxH={{ base: "100vh", md: "90vh" }}
       >
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit(onSubmit)}>
           <ModalHeader fontSize={{ base: "lg", md: "xl" }}>
             {isEdit ? 'Editar Lote' : 'Nuevo Lote'}
           </ModalHeader>
@@ -195,8 +185,7 @@ export const LoteModal = ({ isOpen, onClose, lote }: LoteModalProps) => {
                   <FormControl isRequired isInvalid={!!errors.producto_Id}>
                     <FormLabel fontSize={{ base: "sm", md: "md" }}>Producto</FormLabel>
                     <Select
-                      value={formData.producto_Id}
-                      onChange={(e) => setFormData({ ...formData, producto_Id: Number(e.target.value) })}
+                      {...register('producto_Id', { valueAsNumber: true })}
                       bg={inputBg}
                       borderColor={borderColor}
                       placeholder="Seleccione un producto"
@@ -208,26 +197,27 @@ export const LoteModal = ({ isOpen, onClose, lote }: LoteModalProps) => {
                         </option>
                       ))}
                     </Select>
-                    <FormErrorMessage>{errors.producto_Id}</FormErrorMessage>
+                    <FormErrorMessage>{errors.producto_Id?.message}</FormErrorMessage>
                   </FormControl>
                 </GridItem>
 
                 <GridItem>
-                  <FormControl>
+                  <FormControl isInvalid={!!errors.bodega_Id}>
                     <FormLabel>Bodega</FormLabel>
                     <Select
-                      value={formData.bodega_Id}
-                      onChange={(e) => setFormData({ ...formData, bodega_Id: Number(e.target.value) })}
+                      {...register('bodega_Id', { valueAsNumber: true })}
                       bg={inputBg}
                       borderColor={borderColor}
                       placeholder="Seleccione una bodega"
                     >
+                      <option value={0}>Sin bodega</option>
                       {bodegas.map((bodega) => (
                         <option key={bodega.id} value={bodega.id}>
                           {bodega.nombre}
                         </option>
                       ))}
                     </Select>
+                    <FormErrorMessage>{errors.bodega_Id?.message}</FormErrorMessage>
                   </FormControl>
                 </GridItem>
               </Grid>
@@ -235,39 +225,38 @@ export const LoteModal = ({ isOpen, onClose, lote }: LoteModalProps) => {
               <FormControl isRequired isInvalid={!!errors.codigo_Lote}>
                 <FormLabel>Código de Lote</FormLabel>
                 <Input
-                  value={formData.codigo_Lote}
-                  onChange={(e) => setFormData({ ...formData, codigo_Lote: e.target.value })}
+                  {...register('codigo_Lote')}
                   placeholder="LOTE-2024-001"
                   bg={inputBg}
                   borderColor={borderColor}
                 />
-                <FormErrorMessage>{errors.codigo_Lote}</FormErrorMessage>
+                <FormErrorMessage>{errors.codigo_Lote?.message}</FormErrorMessage>
               </FormControl>
 
               <Grid templateColumns="repeat(2, 1fr)" gap={4} w="full">
                 <GridItem>
-                  <FormControl>
+                  <FormControl isInvalid={!!errors.fecha_Fabricacion}>
                     <FormLabel>Fecha de Fabricación</FormLabel>
                     <Input
                       type="date"
-                      value={formData.fecha_Fabricacion}
-                      onChange={(e) => setFormData({ ...formData, fecha_Fabricacion: e.target.value })}
+                      {...register('fecha_Fabricacion')}
                       bg={inputBg}
                       borderColor={borderColor}
                     />
+                    <FormErrorMessage>{errors.fecha_Fabricacion?.message}</FormErrorMessage>
                   </FormControl>
                 </GridItem>
 
                 <GridItem>
-                  <FormControl>
+                  <FormControl isInvalid={!!errors.fecha_Vencimiento}>
                     <FormLabel>Fecha de Vencimiento</FormLabel>
                     <Input
                       type="date"
-                      value={formData.fecha_Vencimiento}
-                      onChange={(e) => setFormData({ ...formData, fecha_Vencimiento: e.target.value })}
+                      {...register('fecha_Vencimiento')}
                       bg={inputBg}
                       borderColor={borderColor}
                     />
+                    <FormErrorMessage>{errors.fecha_Vencimiento?.message}</FormErrorMessage>
                   </FormControl>
                 </GridItem>
               </Grid>
@@ -276,29 +265,41 @@ export const LoteModal = ({ isOpen, onClose, lote }: LoteModalProps) => {
                 <GridItem>
                   <FormControl isRequired isInvalid={!!errors.cantidad_Inicial}>
                     <FormLabel>Cantidad Inicial</FormLabel>
-                    <NumberInput
-                      value={formData.cantidad_Inicial}
-                      onChange={(_, val) => setFormData({ ...formData, cantidad_Inicial: val })}
-                      min={1}
-                    >
-                      <NumberInputField bg={inputBg} borderColor={borderColor} />
-                    </NumberInput>
-                    <FormErrorMessage>{errors.cantidad_Inicial}</FormErrorMessage>
+                    <Controller
+                      name="cantidad_Inicial"
+                      control={control}
+                      render={({ field: { onChange, value } }) => (
+                        <NumberInput
+                          value={value}
+                          onChange={(_, val) => onChange(val)}
+                          min={1}
+                        >
+                          <NumberInputField bg={inputBg} borderColor={borderColor} />
+                        </NumberInput>
+                      )}
+                    />
+                    <FormErrorMessage>{errors.cantidad_Inicial?.message}</FormErrorMessage>
                   </FormControl>
                 </GridItem>
 
                 <GridItem>
                   <FormControl isRequired isInvalid={!!errors.costo_Unitario}>
                     <FormLabel>Costo Unitario ($)</FormLabel>
-                    <NumberInput
-                      value={formData.costo_Unitario}
-                      onChange={(_, val) => setFormData({ ...formData, costo_Unitario: val })}
-                      min={0}
-                      precision={2}
-                    >
-                      <NumberInputField bg={inputBg} borderColor={borderColor} />
-                    </NumberInput>
-                    <FormErrorMessage>{errors.costo_Unitario}</FormErrorMessage>
+                    <Controller
+                      name="costo_Unitario"
+                      control={control}
+                      render={({ field: { onChange, value } }) => (
+                        <NumberInput
+                          value={value}
+                          onChange={(_, val) => onChange(val)}
+                          min={0}
+                          precision={2}
+                        >
+                          <NumberInputField bg={inputBg} borderColor={borderColor} />
+                        </NumberInput>
+                      )}
+                    />
+                    <FormErrorMessage>{errors.costo_Unitario?.message}</FormErrorMessage>
                   </FormControl>
                 </GridItem>
               </Grid>

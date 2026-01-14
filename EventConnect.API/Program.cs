@@ -1,4 +1,5 @@
 ﻿using System.Text;
+using EventConnect.API.Middleware;
 using EventConnect.Application.Services;
 using EventConnect.Application.Services.Implementation;
 using EventConnect.Domain.Repositories;
@@ -22,8 +23,8 @@ builder.Services.AddCors(options =>
     options.AddPolicy("AllowFrontend", policy =>
     {
         policy.WithOrigins(allowedOrigins)
-              .AllowAnyMethod()
-              .AllowAnyHeader()
+              .WithMethods("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS")
+              .WithHeaders("Content-Type", "Authorization", "X-Requested-With")
               .AllowCredentials();
     });
 });
@@ -40,7 +41,7 @@ builder.Services.AddAuthentication(options =>
 })
 .AddJwtBearer(options =>
 {
-    options.RequireHttpsMetadata = false;
+    options.RequireHttpsMetadata = !builder.Environment.IsDevelopment();
     options.SaveToken = true;
     options.TokenValidationParameters = new TokenValidationParameters
     {
@@ -57,13 +58,26 @@ builder.Services.AddAuthentication(options =>
 
 builder.Services.AddAuthorization();
 
+// Configure Rate Limiting
+// TODO: Rate Limiting requiere investigación adicional para .NET 9.0
+// La API de Rate Limiting puede haber cambiado en .NET 9.0
+// Opciones: Usar middleware personalizado o paquete de terceros (ej: AspNetCoreRateLimit)
+// var rateLimitConfig = builder.Configuration.GetSection("RateLimiting");
+// if (rateLimitConfig.GetValue<bool>("EnableRateLimiting", true))
+// {
+//     // Implementar rate limiting aquí cuando se determine el approach correcto
+// }
+
 // Register repositories
 var connectionString = builder.Configuration.GetConnectionString("EventConnectConnection") 
     ?? throw new InvalidOperationException("Connection string not found");
 
 // Core repositories
 builder.Services.AddScoped<IUsuarioRepository>(_ => new UsuarioRepository(connectionString));
-builder.Services.AddScoped(_ => new UsuarioRepository(connectionString));
+builder.Services.AddScoped<IContenidoLandingRepository>(_ => new ContenidoLandingRepository(connectionString));
+builder.Services.AddScoped<IConfiguracionSistemaRepository>(_ => new ConfiguracionSistemaRepository(connectionString));
+
+// TODO: Crear interfaces para los siguientes repositorios y registrar con DI
 builder.Services.AddScoped(_ => new ProductoRepository(connectionString));
 builder.Services.AddScoped(_ => new CategoriaRepository(connectionString));
 builder.Services.AddScoped(_ => new ClienteRepository(connectionString));
@@ -139,18 +153,35 @@ builder.Services.AddSwaggerGen(c =>
 
 var app = builder.Build();
 
-// Enable Swagger in all environments (for testing)
-app.UseSwagger();
-app.UseSwaggerUI(c =>
+// Global Exception Handler (must be first)
+app.UseMiddleware<GlobalExceptionHandlerMiddleware>();
+
+// Enable Swagger only in Development
+if (app.Environment.IsDevelopment())
 {
-    c.SwaggerEndpoint("/swagger/v1/swagger.json", "EventConnect API v1");
-    c.RoutePrefix = string.Empty; // Set Swagger UI at the app's root
-});
+    app.UseSwagger();
+    app.UseSwaggerUI(c =>
+    {
+        c.SwaggerEndpoint("/swagger/v1/swagger.json", "EventConnect API v1");
+        c.RoutePrefix = string.Empty; // Set Swagger UI at the app's root
+    });
+}
 
 app.UseHttpsRedirection();
 app.UseCors("AllowFrontend");
+
+// TODO: Apply Rate Limiting when implemented
+// if (rateLimitConfig.GetValue<bool>("EnableRateLimiting", true))
+// {
+//     app.UseRateLimiter();
+// }
+
 app.UseAuthentication();
 app.UseAuthorization();
+
+// Health Check endpoint
+app.MapHealthChecks("/health");
+
 app.MapControllers();
 
 app.Run();

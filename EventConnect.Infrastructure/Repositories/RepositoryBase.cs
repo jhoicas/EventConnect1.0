@@ -1,5 +1,5 @@
 using Dapper;
-using MySqlConnector;
+using Npgsql;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Reflection;
 
@@ -16,9 +16,9 @@ public class RepositoryBase<T> where T : class
         _tableName = GetTableName();
     }
 
-    protected MySqlConnection GetConnection()
+    protected NpgsqlConnection GetConnection()
     {
-        return new MySqlConnection(_connectionString);
+        return new NpgsqlConnection(_connectionString);
     }
 
     private string GetTableName()
@@ -30,31 +30,32 @@ public class RepositoryBase<T> where T : class
 
     public async Task<IEnumerable<T>> GetAllAsync()
     {
-        using var connection = new MySqlConnection(_connectionString);
+        using var connection = new NpgsqlConnection(_connectionString);
         var sql = $"SELECT * FROM {_tableName}";
         return await connection.QueryAsync<T>(sql);
     }
 
     public async Task<T?> GetByIdAsync(int id)
     {
-        using var connection = new MySqlConnection(_connectionString);
+        using var connection = new NpgsqlConnection(_connectionString);
         var sql = $"SELECT * FROM {_tableName} WHERE Id = @Id";
         return await connection.QueryFirstOrDefaultAsync<T>(sql, new { Id = id });
     }
 
     public async Task<int> AddAsync(T entity)
     {
-        using var connection = new MySqlConnection(_connectionString);
+        using var connection = new NpgsqlConnection(_connectionString);
         var properties = GetPropertiesForInsert(entity);
         var columns = string.Join(", ", properties.Select(p => GetColumnName(p)));
         var values = string.Join(", ", properties.Select(p => $"@{p.Name}"));
-        var sql = $"INSERT INTO {_tableName} ({columns}) VALUES ({values}); SELECT LAST_INSERT_ID();";
+        // PostgreSQL uses RETURNING instead of LAST_INSERT_ID()
+        var sql = $"INSERT INTO {_tableName} ({columns}) VALUES ({values}) RETURNING Id;";
         return await connection.ExecuteScalarAsync<int>(sql, entity);
     }
 
     public async Task<bool> UpdateAsync(T entity)
     {
-        using var connection = new MySqlConnection(_connectionString);
+        using var connection = new NpgsqlConnection(_connectionString);
         var properties = GetPropertiesForUpdate(entity);
         var setClause = string.Join(", ", properties.Select(p => $"{GetColumnName(p)} = @{p.Name}"));
         var sql = $"UPDATE {_tableName} SET {setClause} WHERE Id = @Id";
@@ -64,7 +65,7 @@ public class RepositoryBase<T> where T : class
 
     public async Task<bool> DeleteAsync(int id)
     {
-        using var connection = new MySqlConnection(_connectionString);
+        using var connection = new NpgsqlConnection(_connectionString);
         var sql = $"DELETE FROM {_tableName} WHERE Id = @Id";
         var affected = await connection.ExecuteAsync(sql, new { Id = id });
         return affected > 0;
@@ -72,25 +73,25 @@ public class RepositoryBase<T> where T : class
 
     protected async Task<IEnumerable<T>> QueryAsync(string sql, object? parameters = null)
     {
-        using var connection = new MySqlConnection(_connectionString);
+        using var connection = new NpgsqlConnection(_connectionString);
         return await connection.QueryAsync<T>(sql, parameters);
     }
 
     protected async Task<IEnumerable<TResult>> QueryAsync<TResult>(string sql, object? parameters = null)
     {
-        using var connection = new MySqlConnection(_connectionString);
+        using var connection = new NpgsqlConnection(_connectionString);
         return await connection.QueryAsync<TResult>(sql, parameters);
     }
 
     protected async Task<T?> QueryFirstOrDefaultAsync(string sql, object? parameters = null)
     {
-        using var connection = new MySqlConnection(_connectionString);
+        using var connection = new NpgsqlConnection(_connectionString);
         return await connection.QueryFirstOrDefaultAsync<T>(sql, parameters);
     }
 
     protected async Task<int> ExecuteAsync(string sql, object? parameters = null)
     {
-        using var connection = new MySqlConnection(_connectionString);
+        using var connection = new NpgsqlConnection(_connectionString);
         return await connection.ExecuteAsync(sql, parameters);
     }
 
