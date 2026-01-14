@@ -8,9 +8,9 @@ services:
       repo: tu-usuario/EventConnect
       branch: main
       deploy_on_push: true
-    source_dir: /
-    build_command: cd EventConnect.API && dotnet restore && dotnet publish -c Release -o ./publish
-    run_command: cd EventConnect.API/publish && dotnet EventConnect.API.dll
+    source_dir: EventConnect.API
+    build_command: dotnet restore && dotnet publish -c Release -o ./publish
+    run_command: dotnet EventConnect.API.dll
     environment_slug: net-9-0
     instance_count: 1
     instance_size_slug: basic-xxs
