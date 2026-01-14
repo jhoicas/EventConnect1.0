@@ -1,0 +1,56 @@
+# .dockerignore para optimizar build de Docker
+
+# Build outputs
+**/bin/
+**/obj/
+**/publish/
+*.dll
+*.pdb
+*.exe
+
+# IDE
+.vs/
+.vscode/
+.idea/
+*.user
+*.suo
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# Documentation
+*.md
+docs/
+
+# Database scripts (no necesarios en runtime)
+database/
+
+# Tests
+**/test/
+**/tests/
+**/*Test*.cs
+**/*Tests*.csproj
+
+# Logs
+*.log
+logs/
+
+# Environment files
+.env
+.env.local
+.env.*.local
+appsettings.Development.json
+
+# Node modules (si existen)
+**/node_modules/
+
+# Temporary files
+*.tmp
+*.temp
+*.cache
+
+# OS files
+.DS_Store
+Thumbs.db

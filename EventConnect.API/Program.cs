@@ -58,6 +58,10 @@ builder.Services.AddAuthentication(options =>
 
 builder.Services.AddAuthorization();
 
+// Configure Health Checks
+builder.Services.AddHealthChecks()
+    .AddNpgSql(connectionString, name: "postgresql", tags: new[] { "db", "postgresql" });
+
 // Configure Rate Limiting
 // TODO: Rate Limiting requiere investigación adicional para .NET 9.0
 // La API de Rate Limiting puede haber cambiado en .NET 9.0
