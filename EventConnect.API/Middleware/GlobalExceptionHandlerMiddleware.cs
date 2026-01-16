@@ -56,8 +56,38 @@ public class GlobalExceptionHandlerMiddleware
                 result = JsonSerializer.Serialize(new { message = "Parámetro inválido", error = argEx.Message });
                 break;
             case InvalidOperationException invalidOpEx:
-                code = HttpStatusCode.BadRequest;
-                result = JsonSerializer.Serialize(new { message = "Operación inválida", error = invalidOpEx.Message });
+                // InvalidOperationException puede ser un error de configuración que necesitamos ver
+                code = HttpStatusCode.InternalServerError;
+                var isDevelopment = context.RequestServices
+                    .GetRequiredService<IHostEnvironment>().IsDevelopment();
+                
+                // Si es un error de configuración conocido, mostrarlo siempre
+                var configErrors = new[] { 
+                    "JWT Secret not configured", 
+                    "Connection string not found",
+                    "JWT Secret",
+                    "Connection string"
+                };
+                
+                if (configErrors.Any(err => invalidOpEx.Message.Contains(err, StringComparison.OrdinalIgnoreCase)))
+                {
+                    // Mostrar error de configuración incluso en producción
+                    result = JsonSerializer.Serialize(new 
+                    { 
+                        message = "Error de configuración del servidor", 
+                        error = invalidOpEx.Message,
+                        hint = "Verifique las variables de entorno en DigitalOcean"
+                    });
+                }
+                else
+                {
+                    result = JsonSerializer.Serialize(new 
+                    { 
+                        message = "Operación inválida", 
+                        error = isDevelopment ? invalidOpEx.Message : "Error en la operación solicitada",
+                        stackTrace = isDevelopment ? invalidOpEx.StackTrace : null
+                    });
+                }
                 break;
             case KeyNotFoundException:
                 code = HttpStatusCode.NotFound;
