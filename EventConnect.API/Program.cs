@@ -58,10 +58,6 @@ builder.Services.AddAuthentication(options =>
 
 builder.Services.AddAuthorization();
 
-// Configure Health Checks
-builder.Services.AddHealthChecks()
-    .AddNpgSql(connectionString, name: "postgresql", tags: new[] { "db", "postgresql" });
-
 // Configure Rate Limiting
 // TODO: Rate Limiting requiere investigación adicional para .NET 9.0
 // La API de Rate Limiting puede haber cambiado en .NET 9.0
@@ -75,6 +71,10 @@ builder.Services.AddHealthChecks()
 // Register repositories
 var connectionString = builder.Configuration.GetConnectionString("EventConnectConnection") 
     ?? throw new InvalidOperationException("Connection string not found");
+
+// Configure Health Checks (after connectionString is declared)
+builder.Services.AddHealthChecks()
+    .AddNpgSql(connectionString, name: "postgresql", tags: new[] { "db", "postgresql" });
 
 // Core repositories
 builder.Services.AddScoped<IUsuarioRepository>(_ => new UsuarioRepository(connectionString));
