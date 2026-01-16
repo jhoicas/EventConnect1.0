@@ -42,7 +42,8 @@ public class AuthService : IAuthService
             return null;
 
         // Verificar si está bloqueado
-        if (usuario.Intentos_Fallidos >= 5)
+        var intentosFallidos = usuario.Intentos_Fallidos != null ? (int)usuario.Intentos_Fallidos : 0;
+        if (intentosFallidos >= 5)
         {
             return null; // Usuario bloqueado
         }
@@ -68,17 +69,17 @@ public class AuthService : IAuthService
             Expiration = DateTime.UtcNow.AddMinutes(GetTokenExpirationMinutes()),
             Usuario = new UsuarioDto
             {
-                Id = usuario.Id,
-                Usuario = usuario.Usuario,
-                Email = usuario.Email,
-                Nombre_Completo = usuario.Nombre_Completo,
-                Telefono = usuario.Telefono,
-                Avatar_URL = usuario.Avatar_URL,
-                Empresa_Id = usuario.Empresa_Id,
-                Empresa_Nombre = usuario.Empresa_Nombre,
-                Rol_Id = usuario.Rol_Id,
-                Rol = usuario.RolNombre,
-                Nivel_Acceso = usuario.Nivel_Acceso
+                Id = (int)usuario.Id,
+                Usuario = usuario.Usuario?.ToString() ?? "",
+                Email = usuario.Email?.ToString() ?? "",
+                Nombre_Completo = usuario.Nombre_Completo?.ToString(),
+                Telefono = usuario.Telefono?.ToString(),
+                Avatar_URL = usuario.Avatar_URL?.ToString(),
+                Empresa_Id = usuario.Empresa_Id != null ? (int?)usuario.Empresa_Id : null,
+                Empresa_Nombre = usuario.Empresa_Nombre?.ToString(),
+                Rol_Id = (int)usuario.Rol_Id,
+                Rol = usuario.RolNombre?.ToString() ?? "",
+                Nivel_Acceso = usuario.Nivel_Acceso != null ? (int)usuario.Nivel_Acceso : 0
             }
         };
     }
@@ -346,30 +347,37 @@ public class AuthService : IAuthService
 
     private string GenerateJwtToken(dynamic usuario)
     {
-        var key = Encoding.ASCII.GetBytes(GetJwtSecret());
-
-        var tokenDescriptor = new SecurityTokenDescriptor
+        try
         {
-            Subject = new ClaimsIdentity(new[]
-            {
-                new Claim(ClaimTypes.NameIdentifier, usuario.Id.ToString()),
-                new Claim(ClaimTypes.Name, usuario.Usuario.ToString()),
-                new Claim(ClaimTypes.Email, usuario.Email.ToString()),
-                new Claim(ClaimTypes.Role, usuario.RolNombre.ToString()),
-                new Claim("EmpresaId", usuario.Empresa_Id?.ToString() ?? ""),
-                new Claim("NivelAcceso", usuario.Nivel_Acceso.ToString())
-            }),
-            Expires = DateTime.UtcNow.AddMinutes(GetTokenExpirationMinutes()),
-            Issuer = GetJwtIssuer(),
-            Audience = GetJwtAudience(),
-            SigningCredentials = new SigningCredentials(
-                new SymmetricSecurityKey(key), 
-                SecurityAlgorithms.HmacSha256Signature)
-        };
+            var key = Encoding.ASCII.GetBytes(GetJwtSecret());
 
-        var tokenHandler = new JwtSecurityTokenHandler();
-        var token = tokenHandler.CreateToken(tokenDescriptor);
-        return tokenHandler.WriteToken(token);
+            var tokenDescriptor = new SecurityTokenDescriptor
+            {
+                Subject = new ClaimsIdentity(new[]
+                {
+                    new Claim(ClaimTypes.NameIdentifier, usuario.Id?.ToString() ?? "0"),
+                    new Claim(ClaimTypes.Name, usuario.Usuario?.ToString() ?? ""),
+                    new Claim(ClaimTypes.Email, usuario.Email?.ToString() ?? ""),
+                    new Claim(ClaimTypes.Role, usuario.RolNombre?.ToString() ?? ""),
+                    new Claim("EmpresaId", usuario.Empresa_Id?.ToString() ?? ""),
+                    new Claim("NivelAcceso", usuario.Nivel_Acceso?.ToString() ?? "0")
+                }),
+                Expires = DateTime.UtcNow.AddMinutes(GetTokenExpirationMinutes()),
+                Issuer = GetJwtIssuer(),
+                Audience = GetJwtAudience(),
+                SigningCredentials = new SigningCredentials(
+                    new SymmetricSecurityKey(key), 
+                    SecurityAlgorithms.HmacSha256Signature)
+            };
+
+            var tokenHandler = new JwtSecurityTokenHandler();
+            var token = tokenHandler.CreateToken(tokenDescriptor);
+            return tokenHandler.WriteToken(token);
+        }
+        catch (Exception ex)
+        {
+            throw new InvalidOperationException($"Error al generar token JWT: {ex.Message}", ex);
+        }
     }
 
     private string GetJwtSecret()

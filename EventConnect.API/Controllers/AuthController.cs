@@ -43,8 +43,20 @@ public class AuthController : ControllerBase
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error en login para usuario: {Username}", request.Username);
-            return StatusCode(500, new { message = "Error interno del servidor" });
+            _logger.LogError(ex, "Error en login para usuario: {Username}. Error: {ErrorMessage}. StackTrace: {StackTrace}", 
+                request.Username, ex.Message, ex.StackTrace);
+            
+            // En desarrollo, mostrar más detalles
+            var isDevelopment = HttpContext.RequestServices
+                .GetRequiredService<IHostEnvironment>().IsDevelopment();
+            
+            return StatusCode(500, new 
+            { 
+                message = "Error interno del servidor",
+                error = isDevelopment ? ex.Message : "Error al procesar la solicitud de login",
+                stackTrace = isDevelopment ? ex.StackTrace : null,
+                innerException = isDevelopment && ex.InnerException != null ? ex.InnerException.Message : null
+            });
         }
     }
 
