@@ -16,7 +16,7 @@ builder.Services.AddControllers();
 
 // Configure CORS
 var allowedOrigins = builder.Configuration.GetSection("AllowedCorsOrigins").Get<string[]>() 
-    ?? new[] { "http://localhost:3000" };
+    ?? new[] { "http://localhost:3000", "https://eventconnect-qihii.ondigitalocean.app" };
 
 builder.Services.AddCors(options =>
 {
