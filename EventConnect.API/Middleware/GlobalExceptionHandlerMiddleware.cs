@@ -58,7 +58,7 @@ public class GlobalExceptionHandlerMiddleware
             case InvalidOperationException invalidOpEx:
                 // InvalidOperationException puede ser un error de configuración que necesitamos ver
                 code = HttpStatusCode.InternalServerError;
-                var isDevelopment = context.RequestServices
+                var isDevelopmentConfig = context.RequestServices
                     .GetRequiredService<IHostEnvironment>().IsDevelopment();
                 
                 // Si es un error de configuración conocido, mostrarlo siempre
@@ -84,8 +84,8 @@ public class GlobalExceptionHandlerMiddleware
                     result = JsonSerializer.Serialize(new 
                     { 
                         message = "Operación inválida", 
-                        error = isDevelopment ? invalidOpEx.Message : "Error en la operación solicitada",
-                        stackTrace = isDevelopment ? invalidOpEx.StackTrace : null
+                        error = isDevelopmentConfig ? invalidOpEx.Message : "Error en la operación solicitada",
+                        stackTrace = isDevelopmentConfig ? invalidOpEx.StackTrace : null
                     });
                 }
                 break;
@@ -95,14 +95,14 @@ public class GlobalExceptionHandlerMiddleware
                 break;
             default:
                 // Para excepciones no esperadas, no exponer detalles en producción
-                var isDevelopment = context.RequestServices
+                var isDevelopmentDefault = context.RequestServices
                     .GetRequiredService<IHostEnvironment>().IsDevelopment();
                 
                 result = JsonSerializer.Serialize(new
                 {
                     message = "Ha ocurrido un error interno del servidor",
-                    error = isDevelopment ? exception.Message : "Error interno del servidor",
-                    stackTrace = isDevelopment ? exception.StackTrace : null
+                    error = isDevelopmentDefault ? exception.Message : "Error interno del servidor",
+                    stackTrace = isDevelopmentDefault ? exception.StackTrace : null
                 });
                 break;
         }
