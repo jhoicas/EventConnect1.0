@@ -226,7 +226,7 @@ public class AuthService : IAuthService
                                     Telefono, Estado, Intentos_Fallidos, Fecha_Creacion, Fecha_Actualizacion,
                                     Requiere_Cambio_Password, TwoFA_Activo)
                 VALUES (@EmpresaId, 4, @Email, @Email, @PasswordHash, @NombreCompleto, 
-                        @Telefono, @Estado, 0, @FechaCreacion, @FechaActualizacion, 0, 0);
+                        @Telefono, @Estado, 0, @FechaCreacion, @FechaActualizacion, false, false);
                 SELECT LAST_INSERT_ID();";
             
             var usuarioId = await connection.ExecuteScalarAsync<int>(usuarioSql, new
