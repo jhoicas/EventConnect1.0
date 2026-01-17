@@ -44,6 +44,12 @@ public class AuthService : IAuthService
             if (usuario == null)
                 return null;
 
+            // Verificar que Id no sea null
+            if (usuario.Id == null)
+            {
+                throw new InvalidOperationException("El usuario no tiene un ID válido en la base de datos");
+            }
+
             // Verificar si está bloqueado
             var intentosFallidos = usuario.Intentos_Fallidos != null ? (int)usuario.Intentos_Fallidos : 0;
             if (intentosFallidos >= 5)
@@ -75,7 +81,7 @@ public class AuthService : IAuthService
                 Expiration = DateTime.UtcNow.AddMinutes(GetTokenExpirationMinutes()),
                 Usuario = new UsuarioDto
                 {
-                    Id = (int)usuario.Id,
+                    Id = usuario.Id != null ? (int)usuario.Id : 0,
                     Usuario = usuario.Usuario?.ToString() ?? "",
                     Email = usuario.Email?.ToString() ?? "",
                     Nombre_Completo = usuario.Nombre_Completo?.ToString(),
@@ -83,7 +89,7 @@ public class AuthService : IAuthService
                     Avatar_URL = usuario.Avatar_URL?.ToString(),
                     Empresa_Id = usuario.Empresa_Id != null ? (int?)usuario.Empresa_Id : null,
                     Empresa_Nombre = usuario.Empresa_Nombre?.ToString(),
-                    Rol_Id = (int)usuario.Rol_Id,
+                    Rol_Id = usuario.Rol_Id != null ? (int)usuario.Rol_Id : 0,
                     Rol = usuario.RolNombre?.ToString() ?? "",
                     Nivel_Acceso = usuario.Nivel_Acceso != null ? (int)usuario.Nivel_Acceso : 0
                 }
