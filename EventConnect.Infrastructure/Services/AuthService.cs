@@ -33,7 +33,21 @@ public class AuthService : IAuthService
             await connection.OpenAsync();
             
             var sql = @"
-                SELECT u.*, r.Nombre as RolNombre, r.Nivel_Acceso, e.Razon_Social as Empresa_Nombre
+                SELECT 
+                    u.Id,
+                    u.Usuario,
+                    u.Email,
+                    u.Password_Hash,
+                    u.Nombre_Completo,
+                    u.Telefono,
+                    u.Avatar_URL,
+                    u.Empresa_Id,
+                    u.Rol_Id,
+                    u.Intentos_Fallidos,
+                    u.Estado,
+                    r.Nombre as RolNombre, 
+                    r.Nivel_Acceso, 
+                    e.Razon_Social as Empresa_Nombre
                 FROM Usuario u 
                 INNER JOIN Rol r ON u.Rol_Id = r.Id 
                 LEFT JOIN Empresa e ON u.Empresa_Id = e.Id
@@ -44,10 +58,13 @@ public class AuthService : IAuthService
             if (usuario == null)
                 return null;
 
-            // Verificar que Id no sea null
+            // Verificar que Id no sea null - con mejor logging
             if (usuario.Id == null)
             {
-                throw new InvalidOperationException("El usuario no tiene un ID válido en la base de datos");
+                // En desarrollo, mostrar todos los campos para debugging
+                var fields = ((IDictionary<string, object>)usuario).Keys;
+                var fieldsStr = string.Join(", ", fields);
+                throw new InvalidOperationException($"El usuario '{request.Username}' no tiene un ID válido. Campos disponibles: {fieldsStr}");
             }
 
             // Verificar si está bloqueado
