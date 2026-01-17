@@ -24,7 +24,7 @@ builder.Services.AddCors(options =>
     {
         policy.WithOrigins(allowedOrigins)
               .WithMethods("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS")
-              .WithHeaders("Content-Type", "Authorization", "X-Requested-With")
+              .AllowAnyHeader()
               .AllowCredentials();
     });
 });
@@ -71,6 +71,13 @@ builder.Services.AddAuthorization();
 // Register repositories
 var connectionString = builder.Configuration.GetConnectionString("EventConnectConnection") 
     ?? throw new InvalidOperationException("Connection string not found");
+
+// Log startup information (without sensitive data)
+var logger = LoggerFactory.Create(config => config.AddConsole()).CreateLogger("Startup");
+logger.LogInformation("Starting EventConnect API...");
+logger.LogInformation("Environment: {Environment}", builder.Environment.EnvironmentName);
+logger.LogInformation("CORS Origins: {Origins}", string.Join(", ", allowedOrigins));
+logger.LogInformation("Connection String Configured: {Configured}", !string.IsNullOrEmpty(connectionString));
 
 // Configure Health Checks (after connectionString is declared)
 builder.Services.AddHealthChecks()
@@ -160,8 +167,11 @@ var app = builder.Build();
 // Global Exception Handler (must be first)
 app.UseMiddleware<GlobalExceptionHandlerMiddleware>();
 
-// Enable Swagger only in Development
-if (app.Environment.IsDevelopment())
+// Enable Swagger in Development or when explicitly enabled in production
+var enableSwagger = app.Environment.IsDevelopment() || 
+                   builder.Configuration.GetValue<bool>("EnableSwagger", false);
+
+if (enableSwagger)
 {
     app.UseSwagger();
     app.UseSwaggerUI(c =>
