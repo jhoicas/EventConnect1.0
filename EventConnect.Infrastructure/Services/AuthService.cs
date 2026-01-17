@@ -27,61 +27,72 @@ public class AuthService : IAuthService
 
     public async Task<AuthResponse?> LoginAsync(LoginRequest request)
     {
-        using var connection = new NpgsqlConnection(_connectionString);
-        
-        var sql = @"
-            SELECT u.*, r.Nombre as RolNombre, r.Nivel_Acceso, e.Razon_Social as Empresa_Nombre
-            FROM Usuario u 
-            INNER JOIN Rol r ON u.Rol_Id = r.Id 
-            LEFT JOIN Empresa e ON u.Empresa_Id = e.Id
-            WHERE u.Usuario = @Username AND u.Estado = 'Activo'";
-        
-        var usuario = await connection.QueryFirstOrDefaultAsync<dynamic>(sql, new { Username = request.Username });
-        
-        if (usuario == null)
-            return null;
-
-        // Verificar si está bloqueado
-        var intentosFallidos = usuario.Intentos_Fallidos != null ? (int)usuario.Intentos_Fallidos : 0;
-        if (intentosFallidos >= 5)
+        try
         {
-            return null; // Usuario bloqueado
-        }
+            using var connection = new NpgsqlConnection(_connectionString);
+            await connection.OpenAsync();
+            
+            var sql = @"
+                SELECT u.*, r.Nombre as RolNombre, r.Nivel_Acceso, e.Razon_Social as Empresa_Nombre
+                FROM Usuario u 
+                INNER JOIN Rol r ON u.Rol_Id = r.Id 
+                LEFT JOIN Empresa e ON u.Empresa_Id = e.Id
+                WHERE u.Usuario = @Username AND u.Estado = 'Activo'";
+            
+            var usuario = await connection.QueryFirstOrDefaultAsync<dynamic>(sql, new { Username = request.Username });
+            
+            if (usuario == null)
+                return null;
 
-        // Verificar contraseña
-        if (!VerifyPassword(request.Password, usuario.Password_Hash))
-        {
-            await _usuarioRepository.IncrementFailedAttemptsAsync(usuario.Id);
-            return null;
-        }
-
-        // Resetear intentos fallidos y actualizar último acceso
-        await _usuarioRepository.ResetFailedAttemptsAsync(usuario.Id);
-
-        // Generar token
-        var token = GenerateJwtToken(usuario);
-        var refreshToken = Guid.NewGuid().ToString();
-
-        return new AuthResponse
-        {
-            Token = token,
-            RefreshToken = refreshToken,
-            Expiration = DateTime.UtcNow.AddMinutes(GetTokenExpirationMinutes()),
-            Usuario = new UsuarioDto
+            // Verificar si está bloqueado
+            var intentosFallidos = usuario.Intentos_Fallidos != null ? (int)usuario.Intentos_Fallidos : 0;
+            if (intentosFallidos >= 5)
             {
-                Id = (int)usuario.Id,
-                Usuario = usuario.Usuario?.ToString() ?? "",
-                Email = usuario.Email?.ToString() ?? "",
-                Nombre_Completo = usuario.Nombre_Completo?.ToString(),
-                Telefono = usuario.Telefono?.ToString(),
-                Avatar_URL = usuario.Avatar_URL?.ToString(),
-                Empresa_Id = usuario.Empresa_Id != null ? (int?)usuario.Empresa_Id : null,
-                Empresa_Nombre = usuario.Empresa_Nombre?.ToString(),
-                Rol_Id = (int)usuario.Rol_Id,
-                Rol = usuario.RolNombre?.ToString() ?? "",
-                Nivel_Acceso = usuario.Nivel_Acceso != null ? (int)usuario.Nivel_Acceso : 0
+                return null; // Usuario bloqueado
             }
-        };
+
+            // Verificar contraseña
+            var passwordHash = usuario.Password_Hash?.ToString() ?? "";
+            if (string.IsNullOrEmpty(passwordHash) || !VerifyPassword(request.Password, passwordHash))
+            {
+                var userId = (int)usuario.Id;
+                await _usuarioRepository.IncrementFailedAttemptsAsync(userId);
+                return null;
+            }
+
+            // Resetear intentos fallidos y actualizar último acceso
+            var userIdToReset = (int)usuario.Id;
+            await _usuarioRepository.ResetFailedAttemptsAsync(userIdToReset);
+
+            // Generar token
+            var token = GenerateJwtToken(usuario);
+            var refreshToken = Guid.NewGuid().ToString();
+
+            return new AuthResponse
+            {
+                Token = token,
+                RefreshToken = refreshToken,
+                Expiration = DateTime.UtcNow.AddMinutes(GetTokenExpirationMinutes()),
+                Usuario = new UsuarioDto
+                {
+                    Id = (int)usuario.Id,
+                    Usuario = usuario.Usuario?.ToString() ?? "",
+                    Email = usuario.Email?.ToString() ?? "",
+                    Nombre_Completo = usuario.Nombre_Completo?.ToString(),
+                    Telefono = usuario.Telefono?.ToString(),
+                    Avatar_URL = usuario.Avatar_URL?.ToString(),
+                    Empresa_Id = usuario.Empresa_Id != null ? (int?)usuario.Empresa_Id : null,
+                    Empresa_Nombre = usuario.Empresa_Nombre?.ToString(),
+                    Rol_Id = (int)usuario.Rol_Id,
+                    Rol = usuario.RolNombre?.ToString() ?? "",
+                    Nivel_Acceso = usuario.Nivel_Acceso != null ? (int)usuario.Nivel_Acceso : 0
+                }
+            };
+        }
+        catch (Exception ex)
+        {
+            throw new InvalidOperationException($"Error en LoginAsync: {ex.Message}. InnerException: {ex.InnerException?.Message}", ex);
+        }
     }
 
     public async Task<AuthResponse?> RegisterAsync(RegisterRequest request)
