@@ -58,8 +58,11 @@ public class AuthService : IAuthService
             if (usuario == null)
                 return null;
 
+            // PostgreSQL devuelve nombres de columnas en minúsculas, intentar ambos
+            var userId = usuario.id ?? usuario.Id;
+            
             // Verificar que Id no sea null - con mejor logging
-            if (usuario.Id == null)
+            if (userId == null)
             {
                 // En desarrollo, mostrar todos los campos para debugging
                 var fields = ((IDictionary<string, object>)usuario).Keys;
@@ -68,24 +71,22 @@ public class AuthService : IAuthService
             }
 
             // Verificar si está bloqueado
-            var intentosFallidos = usuario.Intentos_Fallidos != null ? (int)usuario.Intentos_Fallidos : 0;
-            if (intentosFallidos >= 5)
+            var intentosFallidos = (usuario.intentos_fallidos ?? usuario.Intentos_Fallidos) ?? 0;
+            if ((int)intentosFallidos >= 5)
             {
                 return null; // Usuario bloqueado
             }
 
             // Verificar contraseña
-            var passwordHash = usuario.Password_Hash?.ToString() ?? "";
+            var passwordHash = (usuario.password_hash ?? usuario.Password_Hash)?.ToString() ?? "";
             if (string.IsNullOrEmpty(passwordHash) || !VerifyPassword(request.Password, passwordHash))
             {
-                var userId = (int)usuario.Id;
-                await _usuarioRepository.IncrementFailedAttemptsAsync(userId);
+                await _usuarioRepository.IncrementFailedAttemptsAsync((int)userId);
                 return null;
             }
 
             // Resetear intentos fallidos y actualizar último acceso
-            var userIdToReset = (int)usuario.Id;
-            await _usuarioRepository.ResetFailedAttemptsAsync(userIdToReset);
+            await _usuarioRepository.ResetFailedAttemptsAsync((int)userId);
 
             // Generar token
             var token = GenerateJwtToken(usuario);
@@ -98,17 +99,17 @@ public class AuthService : IAuthService
                 Expiration = DateTime.UtcNow.AddMinutes(GetTokenExpirationMinutes()),
                 Usuario = new UsuarioDto
                 {
-                    Id = usuario.Id != null ? (int)usuario.Id : 0,
-                    Usuario = usuario.Usuario?.ToString() ?? "",
-                    Email = usuario.Email?.ToString() ?? "",
-                    Nombre_Completo = usuario.Nombre_Completo?.ToString(),
-                    Telefono = usuario.Telefono?.ToString(),
-                    Avatar_URL = usuario.Avatar_URL?.ToString(),
-                    Empresa_Id = usuario.Empresa_Id != null ? (int?)usuario.Empresa_Id : null,
-                    Empresa_Nombre = usuario.Empresa_Nombre?.ToString(),
-                    Rol_Id = usuario.Rol_Id != null ? (int)usuario.Rol_Id : 0,
-                    Rol = usuario.RolNombre?.ToString() ?? "",
-                    Nivel_Acceso = usuario.Nivel_Acceso != null ? (int)usuario.Nivel_Acceso : 0
+                    Id = (int)(usuario.id ?? usuario.Id ?? 0),
+                    Usuario = (usuario.usuario ?? usuario.Usuario)?.ToString() ?? "",
+                    Email = (usuario.email ?? usuario.Email)?.ToString() ?? "",
+                    Nombre_Completo = (usuario.nombre_completo ?? usuario.Nombre_Completo)?.ToString(),
+                    Telefono = (usuario.telefono ?? usuario.Telefono)?.ToString(),
+                    Avatar_URL = (usuario.avatar_url ?? usuario.Avatar_URL)?.ToString(),
+                    Empresa_Id = (usuario.empresa_id ?? usuario.Empresa_Id) != null ? (int?)(usuario.empresa_id ?? usuario.Empresa_Id) : null,
+                    Empresa_Nombre = (usuario.empresa_nombre ?? usuario.Empresa_Nombre)?.ToString(),
+                    Rol_Id = (int)((usuario.rol_id ?? usuario.Rol_Id) ?? 0),
+                    Rol = (usuario.rolnombre ?? usuario.RolNombre)?.ToString() ?? "",
+                    Nivel_Acceso = (int)((usuario.nivel_acceso ?? usuario.Nivel_Acceso) ?? 0)
                 }
             };
         }
