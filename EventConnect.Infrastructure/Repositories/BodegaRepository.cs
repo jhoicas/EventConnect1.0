@@ -11,7 +11,7 @@ public class BodegaRepository : RepositoryBase<Bodega>
     public async Task<IEnumerable<Bodega>> GetByEmpresaIdAsync(int empresaId)
     {
         using var connection = new NpgsqlConnection(_connectionString);
-        var query = "SELECT * FROM Bodega WHERE Empresa_Id = @EmpresaId AND Estado = ''Activo'' ORDER BY Nombre";
+        var query = "SELECT * FROM Bodega WHERE Empresa_Id = @EmpresaId AND Estado = 'Activo' ORDER BY Nombre";
         return await connection.QueryAsync<Bodega>(query, new { EmpresaId = empresaId });
     }
 

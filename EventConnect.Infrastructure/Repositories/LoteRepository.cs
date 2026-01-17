@@ -21,9 +21,9 @@ public class LoteRepository : RepositoryBase<Lote>
         var query = @"
             SELECT * FROM Lote 
             WHERE Fecha_Vencimiento IS NOT NULL 
-            AND Fecha_Vencimiento < CURDATE()
+            AND Fecha_Vencimiento < CURRENT_DATE
             AND Cantidad_Actual > 0
-            AND Estado = ''Disponible''";
+            AND Estado = 'Disponible'";
         return await connection.QueryAsync<Lote>(query);
     }
 
@@ -33,9 +33,9 @@ public class LoteRepository : RepositoryBase<Lote>
         var query = @"
             SELECT * FROM Lote 
             WHERE Fecha_Vencimiento IS NOT NULL 
-            AND Fecha_Vencimiento BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL @Dias DAY)
+            AND Fecha_Vencimiento BETWEEN CURRENT_DATE AND CURRENT_DATE + (@Dias || ' days')::INTERVAL
             AND Cantidad_Actual > 0
-            AND Estado = ''Disponible''";
+            AND Estado = 'Disponible'";
         return await connection.QueryAsync<Lote>(query, new { Dias = diasAnticipacion });
     }
 }

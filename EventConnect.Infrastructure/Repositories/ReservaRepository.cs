@@ -49,8 +49,8 @@ public class ReservaRepository : RepositoryBase<Reserva>
                 c.Email as Cliente_Email,
                 c.Telefono as Cliente_Telefono,
                 u.Nombre_Completo as Creado_Por_Nombre,
-                DATEDIFF(r.Fecha_Vencimiento_Cotizacion, NOW()) as Dias_Para_Vencer,
-                CASE WHEN r.Fecha_Vencimiento_Cotizacion < NOW() THEN 1 ELSE 0 END as Esta_Vencida
+                EXTRACT(DAY FROM r.Fecha_Vencimiento_Cotizacion - NOW()) as Dias_Para_Vencer,
+                (r.Fecha_Vencimiento_Cotizacion < NOW()) as Esta_Vencida
             FROM Reserva r
             INNER JOIN Cliente c ON r.Cliente_Id = c.Id
             INNER JOIN Usuario u ON r.Creado_Por_Id = u.Id
@@ -78,8 +78,8 @@ public class ReservaRepository : RepositoryBase<Reserva>
                 c.Email as Cliente_Email,
                 c.Telefono as Cliente_Telefono,
                 u.Nombre_Completo as Creado_Por_Nombre,
-                DATEDIFF(r.Fecha_Vencimiento_Cotizacion, NOW()) as Dias_Para_Vencer,
-                CASE WHEN r.Fecha_Vencimiento_Cotizacion < NOW() THEN 1 ELSE 0 END as Esta_Vencida
+                EXTRACT(DAY FROM r.Fecha_Vencimiento_Cotizacion - NOW()) as Dias_Para_Vencer,
+                (r.Fecha_Vencimiento_Cotizacion < NOW()) as Esta_Vencida
             FROM Reserva r
             INNER JOIN Cliente c ON r.Cliente_Id = c.Id
             INNER JOIN Usuario u ON r.Creado_Por_Id = u.Id
@@ -106,8 +106,8 @@ public class ReservaRepository : RepositoryBase<Reserva>
                 c.Email as Cliente_Email,
                 c.Telefono as Cliente_Telefono,
                 u.Nombre_Completo as Creado_Por_Nombre,
-                DATEDIFF(r.Fecha_Vencimiento_Cotizacion, NOW()) as Dias_Para_Vencer,
-                CASE WHEN r.Fecha_Vencimiento_Cotizacion < NOW() THEN 1 ELSE 0 END as Esta_Vencida
+                EXTRACT(DAY FROM r.Fecha_Vencimiento_Cotizacion - NOW()) as Dias_Para_Vencer,
+                (r.Fecha_Vencimiento_Cotizacion < NOW()) as Esta_Vencida
             FROM Reserva r
             INNER JOIN Cliente c ON r.Cliente_Id = c.Id
             INNER JOIN Usuario u ON r.Creado_Por_Id = u.Id
@@ -147,7 +147,7 @@ public class ReservaRepository : RepositoryBase<Reserva>
     {
         var sql = @"
             UPDATE Reserva 
-            SET Fecha_Vencimiento_Cotizacion = DATE_ADD(Fecha_Vencimiento_Cotizacion, INTERVAL @DiasExtension DAY),
+            SET Fecha_Vencimiento_Cotizacion = Fecha_Vencimiento_Cotizacion + (@DiasExtension || ' days')::INTERVAL,
                 Fecha_Actualizacion = NOW()
             WHERE Id = @CotizacionId 
             AND Estado = 'Solicitado'

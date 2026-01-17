@@ -46,7 +46,7 @@ public class MantenimientoRepository : RepositoryBase<Mantenimiento>
             INNER JOIN Activo a ON m.Activo_Id = a.Id
             WHERE a.Empresa_Id = @EmpresaId
             AND m.Estado = 'Pendiente'
-            AND m.Fecha_Programada < CURDATE()
+            AND m.Fecha_Programada < CURRENT_DATE
             ORDER BY m.Fecha_Programada";
         return await connection.QueryAsync<Mantenimiento>(query, new { EmpresaId = empresaId });
     }

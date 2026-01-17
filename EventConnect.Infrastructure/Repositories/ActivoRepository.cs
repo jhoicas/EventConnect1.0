@@ -18,7 +18,7 @@ public class ActivoRepository : RepositoryBase<Activo>
     public async Task<IEnumerable<Activo>> GetByBodegaIdAsync(int bodegaId)
     {
         using var connection = new NpgsqlConnection(_connectionString);
-        var query = "SELECT * FROM Activo WHERE Bodega_Id = @BodegaId AND Activo = 1 ORDER BY Codigo_Activo";
+        var query = "SELECT * FROM Activo WHERE Bodega_Id = @BodegaId AND Activo = true ORDER BY Codigo_Activo";
         return await connection.QueryAsync<Activo>(query, new { BodegaId = bodegaId });
     }
 
@@ -49,7 +49,7 @@ public class ActivoRepository : RepositoryBase<Activo>
         var query = @"
             SELECT * FROM Activo 
             WHERE Empresa_Id = @EmpresaId 
-            AND Estado = ''Activo''
+            AND Estado = 'Activo'
             AND Valor_Adquisicion IS NOT NULL
             AND Vida_Util_Meses IS NOT NULL
             AND Fecha_Adquisicion IS NOT NULL";
