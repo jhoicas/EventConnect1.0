@@ -194,7 +194,7 @@ public class FacturaController : BaseController
             foreach (var detalleReserva in detallesReserva)
             {
                 // Obtener nombre del producto si existe
-                string nombreServicio = detalleReserva.Servicio ?? "Producto/Alquiler";
+                string nombreServicio = "Producto/Alquiler"; // Valor por defecto
                 if (detalleReserva.Producto_Id.HasValue && _productoRepository != null)
                 {
                     var producto = await _productoRepository.GetByIdAsync(detalleReserva.Producto_Id.Value);

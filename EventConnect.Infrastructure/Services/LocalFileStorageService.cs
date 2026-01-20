@@ -1,5 +1,6 @@
 using EventConnect.Domain.Services;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.Extensions.Logging;
 
 namespace EventConnect.Infrastructure.Services;
 
