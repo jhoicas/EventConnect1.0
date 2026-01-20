@@ -112,6 +112,9 @@ builder.Services.AddScoped(_ => new TransaccionPagoRepository(connectionString))
 builder.Services.AddScoped(_ => new DetalleReservaRepository(connectionString));
 builder.Services.AddScoped(_ => new DepreciacionRepository(connectionString));
 
+// Logística repository
+builder.Services.AddScoped(_ => new EvidenciaEntregaRepository(connectionString));
+
 // Catalog repositories
 builder.Services.AddScoped(_ => new EstadoReservaRepository(connectionString));
 builder.Services.AddScoped(_ => new EstadoActivoRepository(connectionString));
@@ -121,6 +124,9 @@ builder.Services.AddScoped(_ => new TipoMantenimientoRepository(connectionString
 // Register services
 builder.Services.AddScoped<IAuthService>(provider =>
     new AuthService(connectionString, builder.Configuration));
+
+// File Storage Service
+builder.Services.AddScoped<IFileStorageService, LocalFileStorageService>();
 
 // Validation services
 builder.Services.AddScoped<IDetalleReservaValidacionService, DetalleReservaValidacionService>();
