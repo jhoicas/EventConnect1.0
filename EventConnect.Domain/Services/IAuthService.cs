@@ -9,4 +9,5 @@ public interface IAuthService
     Task<AuthResponse?> RegisterClienteAsync(RegisterClienteRequest request);
     Task<AuthResponse?> RefreshTokenAsync(string refreshToken);
     Task<bool> ValidateTokenAsync(string token);
+    Task<UsuarioDto?> UpdateProfileAsync(int userId, UpdateProfileRequest request);
 }

@@ -59,26 +59,34 @@ public class AuthService : IAuthService
                 return null;
 
             // PostgreSQL devuelve nombres de columnas en minúsculas, intentar ambos
-            var userId = usuario.id ?? usuario.Id;
+            var userId = GetValue(usuario, "id") ?? GetValue(usuario, "Id");
             
             // Verificar que Id no sea null - con mejor logging
             if (userId == null)
             {
                 // En desarrollo, mostrar todos los campos para debugging
-                var fields = ((IDictionary<string, object>)usuario).Keys;
-                var fieldsStr = string.Join(", ", fields);
-                throw new InvalidOperationException($"El usuario '{request.Username}' no tiene un ID válido. Campos disponibles: {fieldsStr}");
+                try
+                {
+                    var dict = usuario as IDictionary<string, object>;
+                    var fields = dict?.Keys ?? new string[0];
+                    var fieldsStr = string.Join(", ", fields);
+                    throw new InvalidOperationException($"El usuario '{request.Username}' no tiene un ID válido. Campos disponibles: {fieldsStr}");
+                }
+                catch
+                {
+                    throw new InvalidOperationException($"El usuario '{request.Username}' no tiene un ID válido.");
+                }
             }
 
             // Verificar si está bloqueado
-            var intentosFallidos = (usuario.intentos_fallidos ?? usuario.Intentos_Fallidos) ?? 0;
+            var intentosFallidos = GetValue(usuario, "intentos_fallidos") ?? GetValue(usuario, "Intentos_Fallidos") ?? 0;
             if ((int)intentosFallidos >= 5)
             {
                 return null; // Usuario bloqueado
             }
 
             // Verificar contraseña
-            var passwordHash = (usuario.password_hash ?? usuario.Password_Hash)?.ToString() ?? "";
+            var passwordHash = GetValue(usuario, "password_hash")?.ToString() ?? GetValue(usuario, "Password_Hash")?.ToString() ?? "";
             if (string.IsNullOrEmpty(passwordHash) || !VerifyPassword(request.Password, passwordHash))
             {
                 await _usuarioRepository.IncrementFailedAttemptsAsync((int)userId);
@@ -92,6 +100,9 @@ public class AuthService : IAuthService
             var token = GenerateJwtToken(usuario);
             var refreshToken = Guid.NewGuid().ToString();
 
+            // Normalizar rol
+            var rolNombre = NormalizeRole(GetValue(usuario, "rolnombre")?.ToString() ?? GetValue(usuario, "RolNombre")?.ToString() ?? "");
+
             return new AuthResponse
             {
                 Token = token,
@@ -99,17 +110,17 @@ public class AuthService : IAuthService
                 Expiration = DateTime.UtcNow.AddMinutes(GetTokenExpirationMinutes()),
                 Usuario = new UsuarioDto
                 {
-                    Id = (int)(usuario.id ?? usuario.Id ?? 0),
-                    Usuario = (usuario.usuario ?? usuario.Usuario)?.ToString() ?? "",
-                    Email = (usuario.email ?? usuario.Email)?.ToString() ?? "",
-                    Nombre_Completo = (usuario.nombre_completo ?? usuario.Nombre_Completo)?.ToString(),
-                    Telefono = (usuario.telefono ?? usuario.Telefono)?.ToString(),
-                    Avatar_URL = (usuario.avatar_url ?? usuario.Avatar_URL)?.ToString(),
-                    Empresa_Id = (usuario.empresa_id ?? usuario.Empresa_Id) != null ? (int?)(usuario.empresa_id ?? usuario.Empresa_Id) : null,
-                    Empresa_Nombre = (usuario.empresa_nombre ?? usuario.Empresa_Nombre)?.ToString(),
-                    Rol_Id = (int)((usuario.rol_id ?? usuario.Rol_Id) ?? 0),
-                    Rol = (usuario.rolnombre ?? usuario.RolNombre)?.ToString() ?? "",
-                    Nivel_Acceso = (int)((usuario.nivel_acceso ?? usuario.Nivel_Acceso) ?? 0)
+                    Id = (int)(GetValue(usuario, "id") ?? GetValue(usuario, "Id") ?? 0),
+                    Usuario = GetValue(usuario, "usuario")?.ToString() ?? GetValue(usuario, "Usuario")?.ToString() ?? "",
+                    Email = GetValue(usuario, "email")?.ToString() ?? GetValue(usuario, "Email")?.ToString() ?? "",
+                    Nombre_Completo = GetValue(usuario, "nombre_completo")?.ToString() ?? GetValue(usuario, "Nombre_Completo")?.ToString() ?? "",
+                    Telefono = GetValue(usuario, "telefono")?.ToString() ?? GetValue(usuario, "Telefono")?.ToString(),
+                    Avatar_URL = GetValue(usuario, "avatar_url")?.ToString() ?? GetValue(usuario, "Avatar_URL")?.ToString(),
+                    Empresa_Id = GetValue(usuario, "empresa_id") as int? ?? GetValue(usuario, "Empresa_Id") as int?,
+                    Empresa_Nombre = GetValue(usuario, "empresa_nombre")?.ToString() ?? GetValue(usuario, "Empresa_Nombre")?.ToString(),
+                    Rol_Id = (int)(GetValue(usuario, "rol_id") ?? GetValue(usuario, "Rol_Id") ?? 0),
+                    Rol = rolNombre,
+                    Nivel_Acceso = (int)(GetValue(usuario, "nivel_acceso") ?? GetValue(usuario, "Nivel_Acceso") ?? 0)
                 }
             };
         }
@@ -162,8 +173,16 @@ public class AuthService : IAuthService
         
         var nuevoUsuario = await connection.QueryFirstOrDefaultAsync<dynamic>(sql, new { UserId = userId });
         
+        if (nuevoUsuario == null)
+        {
+            throw new InvalidOperationException("Usuario registrado no encontrado después de la creación");
+        }
+
         var token = GenerateJwtToken(nuevoUsuario);
         var refreshToken = Guid.NewGuid().ToString();
+
+        // Normalizar rol
+        var rolNombre = NormalizeRole(GetValue(nuevoUsuario, "rolnombre")?.ToString() ?? GetValue(nuevoUsuario, "RolNombre")?.ToString() ?? "");
 
         return new AuthResponse
         {
@@ -172,15 +191,17 @@ public class AuthService : IAuthService
             Expiration = DateTime.UtcNow.AddMinutes(GetTokenExpirationMinutes()),
             Usuario = new UsuarioDto
             {
-                Id = nuevoUsuario.Id,
-                Usuario = nuevoUsuario.Usuario,
-                Email = nuevoUsuario.Email,
-                Nombre_Completo = nuevoUsuario.Nombre_Completo,
-                Empresa_Id = nuevoUsuario.Empresa_Id,
-                Empresa_Nombre = nuevoUsuario.Empresa_Nombre,
-                Rol_Id = nuevoUsuario.Rol_Id,
-                Rol = nuevoUsuario.RolNombre,
-                Nivel_Acceso = nuevoUsuario.Nivel_Acceso
+                Id = (int)(GetValue(nuevoUsuario, "id") ?? GetValue(nuevoUsuario, "Id") ?? userId),
+                Usuario = GetValue(nuevoUsuario, "usuario")?.ToString() ?? GetValue(nuevoUsuario, "Usuario")?.ToString() ?? "",
+                Email = GetValue(nuevoUsuario, "email")?.ToString() ?? GetValue(nuevoUsuario, "Email")?.ToString() ?? "",
+                Nombre_Completo = GetValue(nuevoUsuario, "nombre_completo")?.ToString() ?? GetValue(nuevoUsuario, "Nombre_Completo")?.ToString() ?? "",
+                Telefono = GetValue(nuevoUsuario, "telefono")?.ToString() ?? GetValue(nuevoUsuario, "Telefono")?.ToString(),
+                Avatar_URL = GetValue(nuevoUsuario, "avatar_url")?.ToString() ?? GetValue(nuevoUsuario, "Avatar_URL")?.ToString(),
+                Empresa_Id = GetValue(nuevoUsuario, "empresa_id") as int? ?? GetValue(nuevoUsuario, "Empresa_Id") as int?,
+                Empresa_Nombre = GetValue(nuevoUsuario, "empresa_nombre")?.ToString() ?? GetValue(nuevoUsuario, "Empresa_Nombre")?.ToString(),
+                Rol_Id = (int)(GetValue(nuevoUsuario, "rol_id") ?? GetValue(nuevoUsuario, "Rol_Id") ?? 0),
+                Rol = rolNombre,
+                Nivel_Acceso = (int)(GetValue(nuevoUsuario, "nivel_acceso") ?? GetValue(nuevoUsuario, "Nivel_Acceso") ?? 0)
             }
         };
     }
@@ -281,8 +302,16 @@ public class AuthService : IAuthService
                 
                 var nuevoUsuario = await connection.QueryFirstOrDefaultAsync<dynamic>(sql, new { UserId = usuarioId });
                 
+                if (nuevoUsuario == null)
+                {
+                    throw new InvalidOperationException("Usuario registrado no encontrado después de la creación");
+                }
+
                 var token = GenerateJwtToken(nuevoUsuario);
                 var refreshToken = Guid.NewGuid().ToString();
+
+                // Normalizar rol
+                var rolNombre = NormalizeRole(GetValue(nuevoUsuario, "rolnombre")?.ToString() ?? GetValue(nuevoUsuario, "RolNombre")?.ToString() ?? "");
 
                 return new AuthResponse
                 {
@@ -291,17 +320,17 @@ public class AuthService : IAuthService
                     Expiration = DateTime.UtcNow.AddMinutes(GetTokenExpirationMinutes()),
                     Usuario = new UsuarioDto
                     {
-                        Id = nuevoUsuario.Id,
-                        Usuario = nuevoUsuario.Usuario,
-                        Email = nuevoUsuario.Email,
-                        Nombre_Completo = nuevoUsuario.Nombre_Completo,
-                        Telefono = nuevoUsuario.Telefono,
-                        Avatar_URL = nuevoUsuario.Avatar_URL,
-                        Empresa_Id = nuevoUsuario.Empresa_Id,
-                        Empresa_Nombre = nuevoUsuario.Empresa_Nombre,
-                        Rol_Id = nuevoUsuario.Rol_Id,
-                        Rol = nuevoUsuario.RolNombre,
-                        Nivel_Acceso = nuevoUsuario.Nivel_Acceso
+                        Id = (int)(GetValue(nuevoUsuario, "id") ?? GetValue(nuevoUsuario, "Id") ?? usuarioId),
+                        Usuario = GetValue(nuevoUsuario, "usuario")?.ToString() ?? GetValue(nuevoUsuario, "Usuario")?.ToString() ?? "",
+                        Email = GetValue(nuevoUsuario, "email")?.ToString() ?? GetValue(nuevoUsuario, "Email")?.ToString() ?? "",
+                        Nombre_Completo = GetValue(nuevoUsuario, "nombre_completo")?.ToString() ?? GetValue(nuevoUsuario, "Nombre_Completo")?.ToString() ?? "",
+                        Telefono = GetValue(nuevoUsuario, "telefono")?.ToString() ?? GetValue(nuevoUsuario, "Telefono")?.ToString(),
+                        Avatar_URL = GetValue(nuevoUsuario, "avatar_url")?.ToString() ?? GetValue(nuevoUsuario, "Avatar_URL")?.ToString(),
+                        Empresa_Id = GetValue(nuevoUsuario, "empresa_id") as int? ?? GetValue(nuevoUsuario, "Empresa_Id") as int?,
+                        Empresa_Nombre = GetValue(nuevoUsuario, "empresa_nombre")?.ToString() ?? GetValue(nuevoUsuario, "Empresa_Nombre")?.ToString(),
+                        Rol_Id = (int)(GetValue(nuevoUsuario, "rol_id") ?? GetValue(nuevoUsuario, "Rol_Id") ?? 0),
+                        Rol = rolNombre,
+                        Nivel_Acceso = (int)(GetValue(nuevoUsuario, "nivel_acceso") ?? GetValue(nuevoUsuario, "Nivel_Acceso") ?? 0)
                     },
                     Message = "Registro exitoso. Bienvenido a EventConnect."
                 };
@@ -386,16 +415,26 @@ public class AuthService : IAuthService
         {
             var key = Encoding.ASCII.GetBytes(GetJwtSecret());
 
+            // Extraer valores de forma segura para PostgreSQL (campos en minúsculas)
+            var userId = GetValue(usuario, "id") ?? GetValue(usuario, "Id") ?? 0;
+            var username = GetValue(usuario, "usuario")?.ToString() ?? GetValue(usuario, "Usuario")?.ToString() ?? "";
+            var email = GetValue(usuario, "email")?.ToString() ?? GetValue(usuario, "Email")?.ToString() ?? "";
+            var empresaId = GetValue(usuario, "empresa_id") ?? GetValue(usuario, "Empresa_Id");
+            var nivelAcceso = GetValue(usuario, "nivel_acceso") ?? GetValue(usuario, "Nivel_Acceso") ?? 0;
+            
+            // Normalizar roles según los 4 roles principales del sistema
+            var rolNombre = NormalizeRole(GetValue(usuario, "rolnombre")?.ToString() ?? GetValue(usuario, "RolNombre")?.ToString() ?? "");
+
             var tokenDescriptor = new SecurityTokenDescriptor
             {
                 Subject = new ClaimsIdentity(new[]
                 {
-                    new Claim(ClaimTypes.NameIdentifier, usuario.Id?.ToString() ?? "0"),
-                    new Claim(ClaimTypes.Name, usuario.Usuario?.ToString() ?? ""),
-                    new Claim(ClaimTypes.Email, usuario.Email?.ToString() ?? ""),
-                    new Claim(ClaimTypes.Role, usuario.RolNombre?.ToString() ?? ""),
-                    new Claim("EmpresaId", usuario.Empresa_Id?.ToString() ?? ""),
-                    new Claim("NivelAcceso", usuario.Nivel_Acceso?.ToString() ?? "0")
+                    new Claim(ClaimTypes.NameIdentifier, userId.ToString()),
+                    new Claim(ClaimTypes.Name, username),
+                    new Claim(ClaimTypes.Email, email),
+                    new Claim(ClaimTypes.Role, rolNombre),
+                    new Claim("EmpresaId", empresaId?.ToString() ?? ""),
+                    new Claim("NivelAcceso", nivelAcceso.ToString())
                 }),
                 Expires = DateTime.UtcNow.AddMinutes(GetTokenExpirationMinutes()),
                 Issuer = GetJwtIssuer(),
@@ -412,6 +451,65 @@ public class AuthService : IAuthService
         catch (Exception ex)
         {
             throw new InvalidOperationException($"Error al generar token JWT: {ex.Message}", ex);
+        }
+    }
+
+    /// <summary>
+    /// Normaliza los roles de la base de datos a los 4 roles principales del sistema
+    /// </summary>
+    private string NormalizeRole(string? rolNombre)
+    {
+        if (string.IsNullOrWhiteSpace(rolNombre))
+            return "Cliente";
+
+        return rolNombre.Trim() switch
+        {
+            "SuperAdmin" => "SuperAdmin",
+            "Admin-Proveedor" => "Admin-Proveedor",
+            "Operario-Logística" or "Operario" => "Operario",
+            "Cliente-Final" or "Cliente" => "Cliente",
+            _ => rolNombre // Mantener el nombre original si no coincide
+        };
+    }
+
+    /// <summary>
+    /// Extrae valores de objetos dynamic de forma segura (maneja campos en minúsculas de PostgreSQL)
+    /// Dapper devuelve objetos dynamic que pueden accederse como diccionarios o propiedades
+    /// </summary>
+    private object? GetValue(dynamic obj, string key)
+    {
+        if (obj == null) return null;
+
+        try
+        {
+            // Dapper devuelve objetos dynamic como IDictionary<string, object>
+            if (obj is IDictionary<string, object> dict)
+            {
+                // Intentar con la clave exacta (minúsculas para PostgreSQL)
+                if (dict.ContainsKey(key))
+                    return dict[key];
+
+                // Intentar con la clave en minúsculas
+                var lowerKey = key.ToLowerInvariant();
+                if (dict.ContainsKey(lowerKey))
+                    return dict[lowerKey];
+
+                // Intentar con la clave en PascalCase (primera letra mayúscula)
+                var pascalKey = char.ToUpperInvariant(key[0]) + (key.Length > 1 ? key.Substring(1).ToLowerInvariant() : "");
+                if (dict.ContainsKey(pascalKey))
+                    return dict[pascalKey];
+
+                return null;
+            }
+
+            // Si no es un diccionario, intentar acceso directo como propiedad
+            var type = ((object)obj).GetType();
+            var prop = type.GetProperty(key, System.Reflection.BindingFlags.IgnoreCase | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
+            return prop?.GetValue(obj);
+        }
+        catch
+        {
+            return null;
         }
     }
 
@@ -435,5 +533,108 @@ public class AuthService : IAuthService
     {
         return int.TryParse(_configuration["JwtSettings:TokenExpirationMinutes"], out var minutes) 
             ? minutes : 60;
+    }
+
+    public async Task<UsuarioDto?> UpdateProfileAsync(int userId, UpdateProfileRequest request)
+    {
+        try
+        {
+            // Validar que el usuario exista
+            var usuario = await _usuarioRepository.GetByIdAsync(userId);
+            if (usuario == null)
+            {
+                return null;
+            }
+
+            // Preparar los valores a actualizar (solo los campos que vienen en el request)
+            var nombreCompleto = !string.IsNullOrWhiteSpace(request.Nombre_Completo) 
+                ? request.Nombre_Completo 
+                : null;
+            var telefono = !string.IsNullOrWhiteSpace(request.Telefono) 
+                ? request.Telefono 
+                : null;
+            var avatarUrl = request.Avatar_URL; // Puede ser null para eliminar el avatar
+
+            // Actualizar el perfil usando el repositorio
+            var updated = await _usuarioRepository.UpdatePerfilAsync(
+                userId, 
+                nombreCompleto, 
+                telefono, 
+                avatarUrl
+            );
+
+            if (!updated)
+            {
+                return null;
+            }
+
+            // Si se actualiza el email, hacerlo por separado (requiere validación adicional)
+            if (!string.IsNullOrWhiteSpace(request.Email) && request.Email != usuario.Email)
+            {
+                // Verificar que el email no esté en uso por otro usuario
+                var existingEmail = await _usuarioRepository.GetByEmailAsync(request.Email);
+                if (existingEmail != null && existingEmail.Id != userId)
+                {
+                    throw new InvalidOperationException("El email ya está en uso por otro usuario");
+                }
+
+                // Actualizar el email
+                using var connection = new NpgsqlConnection(_connectionString);
+                await connection.OpenAsync();
+                var updateEmailSql = "UPDATE Usuario SET Email = @Email, Fecha_Actualizacion = NOW() WHERE Id = @UserId";
+                await connection.ExecuteAsync(updateEmailSql, new { Email = request.Email, UserId = userId });
+            }
+
+            // Obtener el usuario actualizado con toda la información
+            using var conn = new NpgsqlConnection(_connectionString);
+            await conn.OpenAsync();
+            
+            var sql = @"
+                SELECT 
+                    u.Id,
+                    u.Usuario,
+                    u.Email,
+                    u.Nombre_Completo,
+                    u.Telefono,
+                    u.Avatar_URL,
+                    u.Empresa_Id,
+                    u.Rol_Id,
+                    r.Nombre as RolNombre, 
+                    r.Nivel_Acceso, 
+                    e.Razon_Social as Empresa_Nombre
+                FROM Usuario u 
+                INNER JOIN Rol r ON u.Rol_Id = r.Id 
+                LEFT JOIN Empresa e ON u.Empresa_Id = e.Id
+                WHERE u.Id = @UserId";
+            
+            var usuarioActualizado = await conn.QueryFirstOrDefaultAsync<dynamic>(sql, new { UserId = userId });
+            
+            if (usuarioActualizado == null)
+            {
+                return null;
+            }
+
+            // Normalizar rol
+            var rolNombre = NormalizeRole(usuarioActualizado.RolNombre?.ToString() ?? usuarioActualizado.rolnombre?.ToString() ?? "");
+
+            return new UsuarioDto
+            {
+                Id = GetValue(usuarioActualizado, "id") as int? ?? GetValue(usuarioActualizado, "Id") as int? ?? userId,
+                Usuario = GetValue(usuarioActualizado, "usuario")?.ToString() ?? GetValue(usuarioActualizado, "Usuario")?.ToString() ?? "",
+                Email = GetValue(usuarioActualizado, "email")?.ToString() ?? GetValue(usuarioActualizado, "Email")?.ToString() ?? "",
+                Nombre_Completo = GetValue(usuarioActualizado, "nombre_completo")?.ToString() ?? GetValue(usuarioActualizado, "Nombre_Completo")?.ToString() ?? "",
+                Telefono = GetValue(usuarioActualizado, "telefono")?.ToString() ?? GetValue(usuarioActualizado, "Telefono")?.ToString(),
+                Avatar_URL = GetValue(usuarioActualizado, "avatar_url")?.ToString() ?? GetValue(usuarioActualizado, "Avatar_URL")?.ToString(),
+                Empresa_Id = GetValue(usuarioActualizado, "empresa_id") as int? ?? GetValue(usuarioActualizado, "Empresa_Id") as int?,
+                Empresa_Nombre = GetValue(usuarioActualizado, "empresa_nombre")?.ToString() ?? GetValue(usuarioActualizado, "Empresa_Nombre")?.ToString(),
+                Rol_Id = GetValue(usuarioActualizado, "rol_id") as int? ?? GetValue(usuarioActualizado, "Rol_Id") as int? ?? 0,
+                Rol = rolNombre,
+                Nivel_Acceso = GetValue(usuarioActualizado, "nivel_acceso") as int? ?? GetValue(usuarioActualizado, "Nivel_Acceso") as int? ?? 0
+            };
+        }
+        catch (Exception ex)
+        {
+            throw new InvalidOperationException($"Error al actualizar perfil: {ex.Message}", ex);
+        }
     }
 }

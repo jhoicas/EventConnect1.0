@@ -1,12 +1,13 @@
 using EventConnect.Domain.DTOs;
 using EventConnect.Domain.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace EventConnect.API.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-public class AuthController : ControllerBase
+public class AuthController : BaseController
 {
     private readonly IAuthService _authService;
     private readonly ILogger<AuthController> _logger;
@@ -141,19 +142,48 @@ public class AuthController : ControllerBase
     /// Actualizar perfil de usuario
     /// </summary>
     [HttpPut("profile")]
+    [Authorize]
     public async Task<IActionResult> UpdateProfile([FromBody] UpdateProfileRequest request)
     {
         try
         {
-            // TODO: Implementar actualización de perfil en AuthService
-            _logger.LogInformation("Actualizando perfil para usuario ID: {UserId}", request.UsuarioId);
+            // Extraer el ID del usuario del token JWT (seguridad: no confiar en el request)
+            var userIdFromToken = GetCurrentUserId();
             
-            // Por ahora retornamos success
-            return Ok(new { message = "Perfil actualizado correctamente", success = true });
+            if (userIdFromToken == 0)
+            {
+                return Unauthorized(new { message = "Usuario no autenticado" });
+            }
+
+            // Validar que el usuario solo pueda actualizar su propio perfil
+            // (no permitir que usuarioId en el request sea diferente al del token)
+            if (request.UsuarioId != 0 && request.UsuarioId != userIdFromToken)
+            {
+                _logger.LogWarning("Intento de actualizar perfil de otro usuario. Token UserId: {TokenUserId}, Request UserId: {RequestUserId}", 
+                    userIdFromToken, request.UsuarioId);
+                return Forbid("No tienes permiso para actualizar el perfil de otro usuario");
+            }
+
+            // Usar el ID del token, ignorando el del request por seguridad
+            var usuarioActualizado = await _authService.UpdateProfileAsync(userIdFromToken, request);
+            
+            if (usuarioActualizado == null)
+            {
+                _logger.LogWarning("No se pudo actualizar el perfil del usuario {UserId}", userIdFromToken);
+                return NotFound(new { message = "Usuario no encontrado o error al actualizar" });
+            }
+
+            _logger.LogInformation("Perfil actualizado exitosamente para usuario {UserId}", userIdFromToken);
+            return Ok(new { message = "Perfil actualizado correctamente", usuario = usuarioActualizado });
+        }
+        catch (InvalidOperationException ex)
+        {
+            _logger.LogWarning(ex, "Error de validación al actualizar perfil");
+            return BadRequest(new { message = ex.Message });
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error al actualizar perfil");
+            _logger.LogError(ex, "Error al actualizar perfil para usuario {UserId}", GetCurrentUserId());
             return StatusCode(500, new { message = "Error interno del servidor" });
         }
     }
