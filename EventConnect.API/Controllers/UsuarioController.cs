@@ -2,12 +2,14 @@ using EventConnect.Domain.Entities;
 using EventConnect.Domain.Repositories;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 
 namespace EventConnect.API.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-public class UsuarioController : ControllerBase
+[Authorize]
+public class UsuarioController : BaseController
 {
     private readonly IUsuarioRepository _usuarioRepository;
     private readonly ILogger<UsuarioController> _logger;
@@ -21,14 +23,26 @@ public class UsuarioController : ControllerBase
     }
 
     /// <summary>
-    /// Obtener todos los usuarios
+    /// Obtener todos los usuarios (filtrado por empresa para seguridad multi-tenant)
     /// </summary>
     [HttpGet]
     public async Task<IActionResult> GetAll()
     {
         try
         {
-            var usuarios = await _usuarioRepository.GetAllWithDetailsAsync();
+            // SuperAdmin puede ver todos los usuarios (pasa null)
+            // Admin-Proveedor y otros usuarios solo ven usuarios de su empresa
+            int? empresaId = null;
+            if (!IsSuperAdmin())
+            {
+                empresaId = GetCurrentEmpresaId();
+                if (empresaId == null)
+                {
+                    return BadRequest(new { message = "Empresa no válida" });
+                }
+            }
+
+            var usuarios = await _usuarioRepository.GetAllWithDetailsAsync(empresaId);
             return Ok(usuarios);
         }
         catch (Exception ex)
@@ -67,6 +81,12 @@ public class UsuarioController : ControllerBase
             var usuario = await _usuarioRepository.GetByIdAsync(id);
             if (usuario == null)
                 return NotFound(new { message = "Usuario no encontrado" });
+
+            // Validar multi-tenant: solo SuperAdmin puede ver usuarios de otras empresas
+            if (!IsSuperAdmin() && usuario.Empresa_Id != GetCurrentEmpresaId())
+            {
+                return Forbid();
+            }
 
             return Ok(usuario);
         }

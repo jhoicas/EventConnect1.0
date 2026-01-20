@@ -25,22 +25,21 @@ public class ClienteController : BaseController
     {
         try
         {
-            // SuperAdmin puede ver todos los clientes con información de empresa
-            if (IsSuperAdmin())
+            // SuperAdmin puede ver todos los clientes con información de empresa (pasa null)
+            // Admin-Proveedor y otros usuarios solo ven clientes de su empresa
+            int? empresaId = null;
+            if (!IsSuperAdmin())
             {
-                var clientesConEmpresa = await _repository.GetAllWithEmpresaAsync();
-                return Ok(clientesConEmpresa);
+                empresaId = GetCurrentEmpresaId();
+                if (empresaId == null)
+                {
+                    return BadRequest(new { message = "Empresa no válida" });
+                }
             }
 
-            // Usuarios normales solo ven clientes de su empresa
-            var empresaId = GetCurrentEmpresaId();
-            if (empresaId == null)
-            {
-                return BadRequest(new { message = "Empresa no válida" });
-            }
-
-            var clientes = await _repository.GetByEmpresaIdAsync(empresaId.Value);
-            return Ok(clientes);
+            // Usar GetAllWithEmpresaAsync que ahora acepta empresaId
+            var clientesConEmpresa = await _repository.GetAllWithEmpresaAsync(empresaId);
+            return Ok(clientesConEmpresa);
         }
         catch (Exception ex)
         {

@@ -28,11 +28,43 @@ public class RepositoryBase<T> where T : class
         return tableAttr?.Name ?? type.Name;
     }
 
-    public async Task<IEnumerable<T>> GetAllAsync()
+    /// <summary>
+    /// Obtiene todos los registros opcionalmente filtrados por Empresa_Id
+    /// Si empresaId es null, retorna todos (solo para SuperAdmin)
+    /// Si empresaId tiene valor, filtra por ese ID (seguridad multi-tenant)
+    /// </summary>
+    /// <param name="empresaId">ID de la empresa. null = sin filtro (SuperAdmin), valor = filtrar por empresa</param>
+    public async Task<IEnumerable<T>> GetAllAsync(int? empresaId = null)
     {
         using var connection = new NpgsqlConnection(_connectionString);
-        var sql = $"SELECT * FROM {_tableName}";
-        return await connection.QueryAsync<T>(sql);
+        string sql;
+        
+        // Verificar si la entidad tiene columna Empresa_Id mediante reflexión
+        var hasEmpresaId = typeof(T).GetProperties()
+            .Any(p => p.Name == "Empresa_Id" || 
+                     p.GetCustomAttributes(typeof(System.ComponentModel.DataAnnotations.Schema.ColumnAttribute), false)
+                       .Cast<System.ComponentModel.DataAnnotations.Schema.ColumnAttribute>()
+                       .Any(a => a.Name == "Empresa_Id"));
+
+        if (hasEmpresaId && empresaId.HasValue)
+        {
+            // Filtrar por Empresa_Id si la entidad tiene esta columna
+            sql = $"SELECT * FROM {_tableName} WHERE Empresa_Id = @EmpresaId";
+            return await connection.QueryAsync<T>(sql, new { EmpresaId = empresaId.Value });
+        }
+        else if (hasEmpresaId && empresaId == null)
+        {
+            // SuperAdmin puede ver todo, pero advertimos que esto debería usarse con precaución
+            // En producción, considerar siempre requerir empresaId
+            sql = $"SELECT * FROM {_tableName}";
+            return await connection.QueryAsync<T>(sql);
+        }
+        else
+        {
+            // Entidad sin Empresa_Id (ej: Empresa, Rol)
+            sql = $"SELECT * FROM {_tableName}";
+            return await connection.QueryAsync<T>(sql);
+        }
     }
 
     public async Task<T?> GetByIdAsync(int id)

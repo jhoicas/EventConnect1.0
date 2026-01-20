@@ -15,7 +15,11 @@ public class ClienteRepository : RepositoryBase<Cliente>
         return await QueryAsync(sql, new { EmpresaId = empresaId });
     }
 
-    public async Task<IEnumerable<ClienteConEmpresaDTO>> GetAllWithEmpresaAsync()
+    /// <summary>
+    /// Obtiene todos los clientes con información de empresa opcionalmente filtrados por Empresa_Id
+    /// </summary>
+    /// <param name="empresaId">ID de la empresa. null = todos (solo SuperAdmin), valor = filtrar por empresa</param>
+    public async Task<IEnumerable<ClienteConEmpresaDTO>> GetAllWithEmpresaAsync(int? empresaId = null)
     {
         var sql = @"
             SELECT 
@@ -23,11 +27,21 @@ public class ClienteRepository : RepositoryBase<Cliente>
                 e.Razon_Social as Empresa_Nombre
             FROM Cliente c
             INNER JOIN Empresa e ON c.Empresa_Id = e.Id
-            WHERE c.Estado = 'Activo'
-            ORDER BY e.Razon_Social, c.Nombre";
+            WHERE c.Estado = 'Activo'";
+        
+        // Aplicar filtro multi-tenant si se proporciona empresaId
+        if (empresaId.HasValue)
+        {
+            sql += " AND c.Empresa_Id = @EmpresaId";
+        }
+        
+        sql += " ORDER BY e.Razon_Social, c.Nombre";
         
         using var connection = GetConnection();
-        return await Dapper.SqlMapper.QueryAsync<ClienteConEmpresaDTO>(connection, sql);
+        return await Dapper.SqlMapper.QueryAsync<ClienteConEmpresaDTO>(
+            connection, 
+            sql, 
+            empresaId.HasValue ? new { EmpresaId = empresaId.Value } : null);
     }
 
     public async Task<Cliente?> GetByDocumentoAsync(int empresaId, string documento)

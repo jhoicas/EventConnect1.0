@@ -1,4 +1,5 @@
 ﻿using EventConnect.Domain.Entities;
+using EventConnect.Domain.DTOs;
 using EventConnect.Infrastructure.Repositories;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -116,6 +117,46 @@ public class ActivoController : BaseController
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error al obtener activo por QR {QR}", qrCode);
+            return StatusCode(500, new { message = "Error interno del servidor" });
+        }
+    }
+
+    /// <summary>
+    /// Obtiene la hoja de vida completa de un activo
+    /// </summary>
+    /// <param name="id">ID del activo</param>
+    /// <returns>Hoja de vida con historial de movimientos, mantenimientos y reservas</returns>
+    /// <response code="200">Hoja de vida encontrada</response>
+    /// <response code="404">Activo no encontrado</response>
+    /// <response code="403">No autorizado para ver este activo</response>
+    [HttpGet("{id}/hoja-vida")]
+    public async Task<IActionResult> GetHojaVida(int id)
+    {
+        try
+        {
+            // Validar que el activo existe y el usuario tiene acceso
+            var activo = await _repository.GetByIdAsync(id);
+            if (activo == null)
+                return NotFound(new { message = "Activo no encontrado" });
+
+            if (!IsSuperAdmin() && activo.Empresa_Id != GetCurrentEmpresaId())
+            {
+                return Forbid();
+            }
+
+            // Obtener hoja de vida completa
+            var hojaVida = await _repository.GetHojaVidaAsync(id);
+            if (hojaVida == null)
+                return NotFound(new { message = "Hoja de vida no encontrada" });
+
+            _logger.LogInformation("Hoja de vida consultada para activo {ActivoId} por usuario {UserId}", 
+                id, GetCurrentUserId());
+
+            return Ok(hojaVida);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error al obtener hoja de vida del activo {Id}", id);
             return StatusCode(500, new { message = "Error interno del servidor" });
         }
     }

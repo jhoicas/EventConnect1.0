@@ -51,6 +51,15 @@ public class Activo
     [Column("QR_Code_URL")]
     public string? QR_Code_URL { get; set; }
     
+    [Column("Codigo_QR")]
+    public string? CodigoQR { get; set; }
+    
+    [Column("Vida_Util_Meses")]
+    public int? VidaUtilMeses { get; set; }
+    
+    [Column("Costo_Adquisicion")]
+    public decimal? CostoAdquisicion { get; set; }
+    
     [Column("Total_Alquileres")]
     public int Total_Alquileres { get; set; }
     

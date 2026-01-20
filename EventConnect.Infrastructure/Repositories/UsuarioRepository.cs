@@ -43,7 +43,11 @@ public class UsuarioRepository : RepositoryBase<Usuario>, IUsuarioRepository
         return affected > 0;
     }
 
-    public async Task<IEnumerable<dynamic>> GetAllWithDetailsAsync()
+    /// <summary>
+    /// Obtiene todos los usuarios con detalles opcionalmente filtrados por Empresa_Id
+    /// </summary>
+    /// <param name="empresaId">ID de la empresa. null = todos (solo SuperAdmin), valor = filtrar por empresa</param>
+    public async Task<IEnumerable<dynamic>> GetAllWithDetailsAsync(int? empresaId = null)
     {
         var sql = @"
             SELECT 
@@ -66,11 +70,18 @@ public class UsuarioRepository : RepositoryBase<Usuario>, IUsuarioRepository
                 e.Razon_Social as empresa_Nombre
             FROM Usuario u
             LEFT JOIN Rol r ON u.Rol_Id = r.Id
-            LEFT JOIN Empresa e ON u.Empresa_Id = e.Id
-            ORDER BY u.Fecha_Creacion DESC";
+            LEFT JOIN Empresa e ON u.Empresa_Id = e.Id";
+        
+        // Aplicar filtro multi-tenant si se proporciona empresaId
+        if (empresaId.HasValue)
+        {
+            sql += " WHERE u.Empresa_Id = @EmpresaId";
+        }
+        
+        sql += " ORDER BY u.Fecha_Creacion DESC";
         
         using var connection = new NpgsqlConnection(_connectionString);
-        return await connection.QueryAsync(sql);
+        return await connection.QueryAsync(sql, empresaId.HasValue ? new { EmpresaId = empresaId.Value } : null);
     }
 
     public async Task<bool> UpdatePerfilAsync(int userId, string? nombreCompleto, string? telefono, string? avatarUrl)

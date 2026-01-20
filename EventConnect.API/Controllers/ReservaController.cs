@@ -24,22 +24,20 @@ public class ReservaController : BaseController
     {
         try
         {
-            var empresaId = GetCurrentEmpresaId();
-            if (empresaId == null && !IsSuperAdmin())
+            // SuperAdmin puede ver todas las reservas (pasa null)
+            // Admin-Proveedor y otros usuarios solo ven reservas de su empresa
+            int? empresaId = null;
+            if (!IsSuperAdmin())
             {
-                return BadRequest(new { message = "Empresa no válida" });
+                empresaId = GetCurrentEmpresaId();
+                if (empresaId == null)
+                {
+                    return BadRequest(new { message = "Empresa no válida" });
+                }
             }
 
-            IEnumerable<Reserva> reservas;
-            if (IsSuperAdmin() && empresaId == null)
-            {
-                reservas = await _repository.GetAllAsync();
-            }
-            else
-            {
-                reservas = await _repository.GetByEmpresaIdAsync(empresaId!.Value);
-            }
-
+            // GetAllAsync ahora acepta empresaId para filtro multi-tenant
+            var reservas = await _repository.GetAllAsync(empresaId);
             return Ok(reservas);
         }
         catch (Exception ex)

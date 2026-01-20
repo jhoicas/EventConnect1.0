@@ -27,18 +27,20 @@ public class CotizacionController : BaseController
     {
         try
         {
-            IEnumerable<CotizacionDTO> cotizaciones;
-
-            if (IsSuperAdmin())
+            // SuperAdmin puede ver todas las cotizaciones (pasa null)
+            // Admin-Proveedor y otros usuarios solo ven cotizaciones de su empresa
+            int? empresaId = null;
+            if (!IsSuperAdmin())
             {
-                cotizaciones = await _reservaRepo.GetAllCotizacionesAsync(incluirVencidas);
-            }
-            else
-            {
-                var empresaId = GetCurrentEmpresaId() ?? 0;
-                cotizaciones = await _reservaRepo.GetCotizacionesByEmpresaIdAsync(empresaId, incluirVencidas);
+                empresaId = GetCurrentEmpresaId();
+                if (empresaId == null)
+                {
+                    return BadRequest(new { message = "Empresa no válida" });
+                }
             }
 
+            // GetAllCotizacionesAsync ahora acepta empresaId para filtro multi-tenant
+            var cotizaciones = await _reservaRepo.GetAllCotizacionesAsync(empresaId, incluirVencidas);
             return Ok(cotizaciones);
         }
         catch (Exception ex)

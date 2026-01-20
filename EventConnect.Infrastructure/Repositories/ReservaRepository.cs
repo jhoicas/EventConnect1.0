@@ -69,7 +69,12 @@ public class ReservaRepository : RepositoryBase<Reserva>
         return await connection.QueryAsync<CotizacionDTO>(sql, new { EmpresaId = empresaId });
     }
 
-    public async Task<IEnumerable<CotizacionDTO>> GetAllCotizacionesAsync(bool? incluirVencidas = null)
+    /// <summary>
+    /// Obtiene todas las cotizaciones opcionalmente filtradas por Empresa_Id
+    /// </summary>
+    /// <param name="empresaId">ID de la empresa. null = todas (solo SuperAdmin), valor = filtrar por empresa</param>
+    /// <param name="incluirVencidas">Incluir cotizaciones vencidas</param>
+    public async Task<IEnumerable<CotizacionDTO>> GetAllCotizacionesAsync(int? empresaId = null, bool? incluirVencidas = null)
     {
         var sql = @"
             SELECT 
@@ -86,6 +91,12 @@ public class ReservaRepository : RepositoryBase<Reserva>
             WHERE r.Estado = 'Solicitado'
             AND r.Fecha_Vencimiento_Cotizacion IS NOT NULL";
 
+        // Aplicar filtro multi-tenant si se proporciona empresaId
+        if (empresaId.HasValue)
+        {
+            sql += " AND r.Empresa_Id = @EmpresaId";
+        }
+
         if (incluirVencidas.HasValue && !incluirVencidas.Value)
         {
             sql += " AND r.Fecha_Vencimiento_Cotizacion >= NOW()";
@@ -94,7 +105,9 @@ public class ReservaRepository : RepositoryBase<Reserva>
         sql += " ORDER BY r.Fecha_Creacion DESC";
 
         using var connection = GetConnection();
-        return await connection.QueryAsync<CotizacionDTO>(sql);
+        return await connection.QueryAsync<CotizacionDTO>(
+            sql, 
+            empresaId.HasValue ? new { EmpresaId = empresaId.Value } : null);
     }
 
     public async Task<CotizacionDTO?> GetCotizacionByIdAsync(int id)

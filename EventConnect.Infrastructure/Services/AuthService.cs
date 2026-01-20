@@ -31,8 +31,8 @@ public class AuthService : IAuthService
         {
             using var connection = new NpgsqlConnection(_connectionString);
             await connection.OpenAsync();
-            
-            var sql = @"
+        
+        var sql = @"
                 SELECT 
                     u.Id,
                     u.Usuario,
@@ -48,15 +48,15 @@ public class AuthService : IAuthService
                     r.Nombre as RolNombre, 
                     r.Nivel_Acceso, 
                     e.Razon_Social as Empresa_Nombre
-                FROM Usuario u 
-                INNER JOIN Rol r ON u.Rol_Id = r.Id 
-                LEFT JOIN Empresa e ON u.Empresa_Id = e.Id
-                WHERE u.Usuario = @Username AND u.Estado = 'Activo'";
-            
-            var usuario = await connection.QueryFirstOrDefaultAsync<dynamic>(sql, new { Username = request.Username });
-            
-            if (usuario == null)
-                return null;
+            FROM Usuario u 
+            INNER JOIN Rol r ON u.Rol_Id = r.Id 
+            LEFT JOIN Empresa e ON u.Empresa_Id = e.Id
+            WHERE u.Usuario = @Username AND u.Estado = 'Activo'";
+        
+        var usuario = await connection.QueryFirstOrDefaultAsync<dynamic>(sql, new { Username = request.Username });
+        
+        if (usuario == null)
+            return null;
 
             // PostgreSQL devuelve nombres de columnas en minúsculas, intentar ambos
             var userId = GetValue(usuario, "id") ?? GetValue(usuario, "Id");
@@ -78,38 +78,38 @@ public class AuthService : IAuthService
                 }
             }
 
-            // Verificar si está bloqueado
+        // Verificar si está bloqueado
             var intentosFallidos = GetValue(usuario, "intentos_fallidos") ?? GetValue(usuario, "Intentos_Fallidos") ?? 0;
             if ((int)intentosFallidos >= 5)
-            {
-                return null; // Usuario bloqueado
-            }
+        {
+            return null; // Usuario bloqueado
+        }
 
-            // Verificar contraseña
+        // Verificar contraseña
             var passwordHash = GetValue(usuario, "password_hash")?.ToString() ?? GetValue(usuario, "Password_Hash")?.ToString() ?? "";
             if (string.IsNullOrEmpty(passwordHash) || !VerifyPassword(request.Password, passwordHash))
-            {
+        {
                 await _usuarioRepository.IncrementFailedAttemptsAsync((int)userId);
-                return null;
-            }
+            return null;
+        }
 
-            // Resetear intentos fallidos y actualizar último acceso
+        // Resetear intentos fallidos y actualizar último acceso
             await _usuarioRepository.ResetFailedAttemptsAsync((int)userId);
 
-            // Generar token
-            var token = GenerateJwtToken(usuario);
-            var refreshToken = Guid.NewGuid().ToString();
+        // Generar token
+        var token = GenerateJwtToken(usuario);
+        var refreshToken = Guid.NewGuid().ToString();
 
             // Normalizar rol
             var rolNombre = NormalizeRole(GetValue(usuario, "rolnombre")?.ToString() ?? GetValue(usuario, "RolNombre")?.ToString() ?? "");
 
-            return new AuthResponse
+        return new AuthResponse
+        {
+            Token = token,
+            RefreshToken = refreshToken,
+            Expiration = DateTime.UtcNow.AddMinutes(GetTokenExpirationMinutes()),
+            Usuario = new UsuarioDto
             {
-                Token = token,
-                RefreshToken = refreshToken,
-                Expiration = DateTime.UtcNow.AddMinutes(GetTokenExpirationMinutes()),
-                Usuario = new UsuarioDto
-                {
                     Id = (int)(GetValue(usuario, "id") ?? GetValue(usuario, "Id") ?? 0),
                     Usuario = GetValue(usuario, "usuario")?.ToString() ?? GetValue(usuario, "Usuario")?.ToString() ?? "",
                     Email = GetValue(usuario, "email")?.ToString() ?? GetValue(usuario, "Email")?.ToString() ?? "",
@@ -121,8 +121,8 @@ public class AuthService : IAuthService
                     Rol_Id = (int)(GetValue(usuario, "rol_id") ?? GetValue(usuario, "Rol_Id") ?? 0),
                     Rol = rolNombre,
                     Nivel_Acceso = (int)(GetValue(usuario, "nivel_acceso") ?? GetValue(usuario, "Nivel_Acceso") ?? 0)
-                }
-            };
+            }
+        };
         }
         catch (Exception ex)
         {
@@ -177,7 +177,7 @@ public class AuthService : IAuthService
         {
             throw new InvalidOperationException("Usuario registrado no encontrado después de la creación");
         }
-
+        
         var token = GenerateJwtToken(nuevoUsuario);
         var refreshToken = Guid.NewGuid().ToString();
 
@@ -306,7 +306,7 @@ public class AuthService : IAuthService
                 {
                     throw new InvalidOperationException("Usuario registrado no encontrado después de la creación");
                 }
-
+                
                 var token = GenerateJwtToken(nuevoUsuario);
                 var refreshToken = Guid.NewGuid().ToString();
 
@@ -412,8 +412,8 @@ public class AuthService : IAuthService
     private string GenerateJwtToken(dynamic usuario)
     {
         try
-        {
-            var key = Encoding.ASCII.GetBytes(GetJwtSecret());
+    {
+        var key = Encoding.ASCII.GetBytes(GetJwtSecret());
 
             // Extraer valores de forma segura para PostgreSQL (campos en minúsculas)
             var userId = GetValue(usuario, "id") ?? GetValue(usuario, "Id") ?? 0;
@@ -425,28 +425,28 @@ public class AuthService : IAuthService
             // Normalizar roles según los 4 roles principales del sistema
             var rolNombre = NormalizeRole(GetValue(usuario, "rolnombre")?.ToString() ?? GetValue(usuario, "RolNombre")?.ToString() ?? "");
 
-            var tokenDescriptor = new SecurityTokenDescriptor
+        var tokenDescriptor = new SecurityTokenDescriptor
+        {
+            Subject = new ClaimsIdentity(new[]
             {
-                Subject = new ClaimsIdentity(new[]
-                {
                     new Claim(ClaimTypes.NameIdentifier, userId.ToString()),
                     new Claim(ClaimTypes.Name, username),
                     new Claim(ClaimTypes.Email, email),
                     new Claim(ClaimTypes.Role, rolNombre),
                     new Claim("EmpresaId", empresaId?.ToString() ?? ""),
                     new Claim("NivelAcceso", nivelAcceso.ToString())
-                }),
-                Expires = DateTime.UtcNow.AddMinutes(GetTokenExpirationMinutes()),
-                Issuer = GetJwtIssuer(),
-                Audience = GetJwtAudience(),
-                SigningCredentials = new SigningCredentials(
-                    new SymmetricSecurityKey(key), 
-                    SecurityAlgorithms.HmacSha256Signature)
-            };
+            }),
+            Expires = DateTime.UtcNow.AddMinutes(GetTokenExpirationMinutes()),
+            Issuer = GetJwtIssuer(),
+            Audience = GetJwtAudience(),
+            SigningCredentials = new SigningCredentials(
+                new SymmetricSecurityKey(key), 
+                SecurityAlgorithms.HmacSha256Signature)
+        };
 
-            var tokenHandler = new JwtSecurityTokenHandler();
-            var token = tokenHandler.CreateToken(tokenDescriptor);
-            return tokenHandler.WriteToken(token);
+        var tokenHandler = new JwtSecurityTokenHandler();
+        var token = tokenHandler.CreateToken(tokenDescriptor);
+        return tokenHandler.WriteToken(token);
         }
         catch (Exception ex)
         {
