@@ -12,6 +12,11 @@ public class ConversacionDTO
     public string Estado { get; set; } = string.Empty;
     public MensajeDTO? Ultimo_Mensaje { get; set; }
     public int Mensajes_No_Leidos { get; set; }
+    
+    // Campos para mostrar información de la contraparte
+    public string? Nombre_Contraparte { get; set; }
+    public string? Avatar_Contraparte { get; set; }
+    public string? Email_Contraparte { get; set; }
 }
 
 public class MensajeDTO
@@ -28,6 +33,7 @@ public class MensajeDTO
 
 public class CreateConversacionRequest
 {
+    public int? Empresa_Id { get; set; } // Para cuando un Cliente crea la conversación
     public string? Asunto { get; set; }
     public int? Reserva_Id { get; set; }
     public string? Mensaje_Inicial { get; set; }

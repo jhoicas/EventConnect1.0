@@ -552,6 +552,7 @@ CREATE TABLE Conversacion (
 );
 
 CREATE INDEX idx_conversacion_empresa ON Conversacion(Empresa_Id);
+CREATE INDEX idx_conversacion_cliente ON Conversacion(Cliente_Id);
 CREATE INDEX idx_conversacion_estado ON Conversacion(Estado);
 
 -- Tabla: Mensaje

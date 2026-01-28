@@ -150,6 +150,11 @@ public class ChatController : BaseController
         }
     }
 
+    /// <summary>
+    /// Crea una nueva conversación.
+    /// REGLA DE NEGOCIO: Solo los usuarios con rol 'Cliente' pueden iniciar conversaciones.
+    /// Las empresas solo pueden responder a conversaciones existentes.
+    /// </summary>
     [HttpPost("conversaciones")]
     public async Task<IActionResult> CreateConversacion([FromBody] CreateConversacionRequest request)
     {
@@ -157,38 +162,31 @@ public class ChatController : BaseController
         {
             var userRole = GetCurrentUserRole();
             var userId = GetCurrentUserId();
-            int empresaIdFinal;
-            int? clienteIdFinal = null;
 
-            if (userRole == "Cliente")
+            // VALIDACIÓN: Solo Clientes pueden iniciar nuevas conversaciones
+            if (userRole != "Cliente")
             {
-                // Cliente creando conversación con una empresa
-                if (request.Empresa_Id == null)
-                {
-                    return BadRequest(new { message = "Debe especificar la empresa con la que desea iniciar la conversación" });
-                }
-
-                var cliente = await _clienteRepository.GetByUsuarioIdAsync(userId);
-                if (cliente == null)
-                {
-                    return BadRequest(new { message = "Usuario cliente no encontrado" });
-                }
-
-                empresaIdFinal = request.Empresa_Id.Value;
-                clienteIdFinal = cliente.Id;
+                _logger.LogWarning("Usuario {UserId} con rol {Role} intentó crear una conversación", userId, userRole);
+                return StatusCode(403, new { message = "Solo los clientes pueden iniciar nuevas conversaciones" });
             }
-            else
+
+            // Validar que se especifique la empresa
+            if (request.Empresa_Id == null)
             {
-                // Empresa creando conversación (necesita especificar cliente en request o inferir de reserva)
-                var empresaId = GetCurrentEmpresaId();
-                if (empresaId == null && !IsSuperAdmin())
-                {
-                    return BadRequest(new { message = "Empresa no válida" });
-                }
-
-                empresaIdFinal = empresaId ?? 1; // SuperAdmin usa empresa 1 por defecto
-                // clienteIdFinal se puede obtener de la reserva si existe
+                return BadRequest(new { message = "Debe especificar la empresa con la que desea iniciar la conversación" });
             }
+
+            // Obtener Cliente_Id automáticamente desde el usuario autenticado
+            // Esto previene suplantaciones de identidad
+            var cliente = await _clienteRepository.GetByUsuarioIdAsync(userId);
+            if (cliente == null)
+            {
+                _logger.LogError("Usuario {UserId} con rol Cliente no tiene registro en tabla Cliente", userId);
+                return BadRequest(new { message = "Usuario cliente no encontrado en el sistema" });
+            }
+
+            int empresaIdFinal = request.Empresa_Id.Value;
+            int clienteIdFinal = cliente.Id; // Asignación automática desde usuario autenticado
 
             var conversacion = new Conversacion
             {
@@ -216,6 +214,9 @@ public class ChatController : BaseController
 
                 await _mensajeRepository.AddAsync(mensaje);
             }
+
+            _logger.LogInformation("Conversación {ConversacionId} creada por Cliente {ClienteId} con Empresa {EmpresaId}", 
+                conversacionId, clienteIdFinal, empresaIdFinal);
 
             return Ok(new { id = conversacionId, message = "Conversación creada correctamente" });
         }
