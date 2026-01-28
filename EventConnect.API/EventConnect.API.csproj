@@ -19,6 +19,7 @@
   <ItemGroup>
     <ProjectReference Include="..\EventConnect.Application\EventConnect.Application.csproj" />
     <ProjectReference Include="..\EventConnect.Infrastructure\EventConnect.Infrastructure.csproj" />
+    <ProjectReference Include="..\EventConnect.Domain\EventConnect.Domain.csproj" />
   </ItemGroup>
 
 </Project>
