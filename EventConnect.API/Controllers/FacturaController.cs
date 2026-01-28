@@ -116,8 +116,20 @@ public class FacturaController : BaseController
             if (reserva == null)
                 return NotFound(new { message = "Reserva no encontrada" });
 
+            // MultiVendedor refactoring: Obtener empresas involucradas desde Detalle_Reserva
+            var detallesReserva = (await _detalleReservaRepository.GetByReservaIdAsync(reservaId)).ToList();
+            if (!detallesReserva.Any())
+            {
+                return BadRequest(new { message = "La reserva no tiene items para facturar" });
+            }
+
+            // Nota: Para reservas multivendedor, se debe generar una factura por empresa
+            // Este endpoint genera factura para la primera empresa en los detalles
+            var empresaIdPrimera = detallesReserva.First().Empresa_Id;
+            var detallesEmpresa = detallesReserva.Where(d => d.Empresa_Id == empresaIdPrimera).ToList();
+
             // Validar autorización multi-tenant
-            if (!IsSuperAdmin() && reserva.Empresa_Id != GetCurrentEmpresaId())
+            if (!IsSuperAdmin() && empresaIdPrimera != GetCurrentEmpresaId())
             {
                 return Forbid();
             }
@@ -128,18 +140,11 @@ public class FacturaController : BaseController
                 return BadRequest(new { message = $"La reserva debe estar en estado 'Confirmado'. Estado actual: {reserva.Estado}" });
             }
 
-            // Validar que no exista ya una factura para esta reserva
-            var facturasExistentes = await _repository.GetByEmpresaAsync(reserva.Empresa_Id);
+            // Validar que no exista ya una factura para esta reserva y empresa
+            var facturasExistentes = await _repository.GetByEmpresaAsync(empresaIdPrimera);
             if (facturasExistentes.Any(f => f.Reserva_Id == reservaId))
             {
                 return BadRequest(new { message = "Ya existe una factura para esta reserva" });
-            }
-
-            // Obtener detalles de la reserva
-            var detallesReserva = (await _detalleReservaRepository.GetByReservaIdAsync(reservaId)).ToList();
-            if (!detallesReserva.Any())
-            {
-                return BadRequest(new { message = "La reserva no tiene items para facturar" });
             }
 
             // Obtener datos del cliente para el snapshot
@@ -165,12 +170,12 @@ public class FacturaController : BaseController
 
             // Obtener siguiente consecutivo
             var prefijo = "FE"; // Factura Electrónica
-            var consecutivo = await _repository.GetSiguienteConsecutivoAsync(reserva.Empresa_Id, prefijo);
+            var consecutivo = await _repository.GetSiguienteConsecutivoAsync(empresaIdPrimera, prefijo);
 
             // Crear factura
             var factura = new Factura
             {
-                Empresa_Id = reserva.Empresa_Id,
+                Empresa_Id = empresaIdPrimera,
                 Cliente_Id = reserva.Cliente_Id,
                 Reserva_Id = reservaId,
                 Prefijo = prefijo,

@@ -56,9 +56,11 @@ public class ReservaController : BaseController
             if (reserva == null)
                 return NotFound(new { message = "Reserva no encontrada" });
 
-            if (!IsSuperAdmin() && reserva.Empresa_Id != GetCurrentEmpresaId())
+            // Se removió el acceso basado en Empresa_Id ya que las reservas ahora son multi-vendor
+            // Solo SuperAdmin y el cliente pueden ver una reserva
+            if (!IsSuperAdmin())
             {
-                return Forbid();
+                return Forbid("Reserva access requiere SuperAdmin");
             }
 
             return Ok(reserva);
@@ -75,14 +77,13 @@ public class ReservaController : BaseController
     {
         try
         {
-            var empresaId = GetCurrentEmpresaId();
-            if (empresaId == null && !IsSuperAdmin())
+            if (!IsSuperAdmin())
             {
-                return BadRequest(new { message = "Empresa no válida" });
+                return Forbid("Only SuperAdmin can query reservations by estado");
             }
 
-            var reservas = await _repository.GetByEstadoAsync(empresaId!.Value, estado);
-            return Ok(reservas);
+            // Note: GetByEstadoAsync has been removed. Use ReservationsController instead.
+            return BadRequest(new { message = "Use ReservationsController for multivendedor queries" });
         }
         catch (Exception ex)
         {
@@ -96,18 +97,19 @@ public class ReservaController : BaseController
     {
         try
         {
-            var empresaId = GetCurrentEmpresaId();
-            if (empresaId == null && !IsSuperAdmin())
+            if (!IsSuperAdmin())
             {
-                return BadRequest(new { message = "Empresa no válida" });
+                return Forbid("Use ReservationsController to create reservations");
             }
 
-            reserva.Empresa_Id = empresaId ?? reserva.Empresa_Id;
+            // MultiVendedor refactoring: Empresa_Id is no longer set on Reserva
+            // It is tracked at DetalleReserva level
             reserva.Creado_Por_Id = GetCurrentUserId();
             reserva.Fecha_Creacion = DateTime.Now;
             reserva.Fecha_Actualizacion = DateTime.Now;
             
             // Generar código único
+
             reserva.Codigo_Reserva = $"RES-{DateTime.Now:yyyyMMdd}-{new Random().Next(1000, 9999)}";
 
             var id = await _repository.AddAsync(reserva);
@@ -133,13 +135,12 @@ public class ReservaController : BaseController
             if (existing == null)
                 return NotFound(new { message = "Reserva no encontrada" });
 
-            if (!IsSuperAdmin() && existing.Empresa_Id != GetCurrentEmpresaId())
+            if (!IsSuperAdmin())
             {
-                return Forbid();
+                return Forbid("Use ReservationsController for multivendedor updates");
             }
 
             reserva.Id = id;
-            reserva.Empresa_Id = existing.Empresa_Id;
             reserva.Codigo_Reserva = existing.Codigo_Reserva;
             reserva.Fecha_Actualizacion = DateTime.Now;
             
@@ -166,9 +167,9 @@ public class ReservaController : BaseController
             if (existing == null)
                 return NotFound(new { message = "Reserva no encontrada" });
 
-            if (!IsSuperAdmin() && existing.Empresa_Id != GetCurrentEmpresaId())
+            if (!IsSuperAdmin())
             {
-                return Forbid();
+                return Forbid("Only SuperAdmin can delete reservations");
             }
 
             var success = await _repository.DeleteAsync(id);

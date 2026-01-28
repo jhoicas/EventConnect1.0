@@ -2,18 +2,23 @@ using EventConnect.Domain.DTOs;
 using EventConnect.Application.Services;
 using EventConnect.Application.Services.Implementation;
 using EventConnect.Infrastructure.Repositories;
+using EventConnect.Domain.Entities;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace EventConnect.API.Controllers;
 
 /// <summary>
-/// Controlador para gestión de reservas
+/// Controlador para gestión de reservas MULTIVENDEDOR
+/// Un Cliente puede tener reservas con productos de múltiples Empresas (Proveedores)
 /// </summary>
 [Authorize]
 public class ReservationsController : BaseController
 {
     private readonly IReservationService _reservationService;
+    private readonly ReservaRepository _reservaRepository;
+    private readonly ClienteRepository _clienteRepository;
+    private readonly EmpresaRepository _empresaRepository;
     private readonly ILogger<ReservationsController> _logger;
 
     public ReservationsController(IConfiguration configuration, ILogger<ReservationsController> logger)
@@ -22,20 +27,18 @@ public class ReservationsController : BaseController
             ?? throw new InvalidOperationException("Connection string not found");
 
         // Instanciar repositorios
-        var reservaRepository = new ReservaRepository(connectionString);
-        var empresaRepository = new EmpresaRepository(connectionString);
-        var clienteRepository = new ClienteRepository(connectionString);
+        _reservaRepository = new ReservaRepository(connectionString);
+        _clienteRepository = new ClienteRepository(connectionString);
+        _empresaRepository = new EmpresaRepository(connectionString);
         var usuarioRepository = new UsuarioRepository(connectionString);
 
-        // Crear logger factory para el servicio
+        // Instanciar servicio
         var loggerFactory = LoggerFactory.Create(builder => builder.AddConsole());
         var serviceLogger = loggerFactory.CreateLogger<ReservationService>();
-
-        // Instanciar servicio
         _reservationService = new ReservationService(
-            reservaRepository,
-            empresaRepository,
-            clienteRepository,
+            _reservaRepository,
+            _empresaRepository,
+            _clienteRepository,
             usuarioRepository,
             serviceLogger);
 
@@ -130,10 +133,27 @@ public class ReservationsController : BaseController
                 return NotFound(new { message = "Reserva no encontrada" });
             }
 
-            // Verificar permisos: solo SuperAdmin o usuarios de la empresa pueden ver la reserva
-            if (!IsSuperAdmin() && reservation.Empresa_Id != GetCurrentEmpresaId())
+            // Verificar permisos: Cliente solo ve sus propias reservas, Empresa solo ve sus detalles
+            var userRole = GetCurrentUserRole();
+            if (userRole == "Cliente")
             {
-                return Forbid();
+                var cliente = await _clienteRepository.GetByUsuarioIdAsync(GetCurrentUserId());
+                if (cliente?.Id != reservation.Cliente_Id)
+                {
+                    return Forbid();
+                }
+            }
+            else if (userRole == "Empresa" && !IsSuperAdmin())
+            {
+                // Verificar que la empresa tiene acceso a al menos un detalle
+                var empresaId = GetCurrentEmpresaId();
+                if (empresaId.HasValue && reservation.Detalles != null)
+                {
+                    if (!reservation.Detalles.Any(d => d.Empresa_Id == empresaId.Value))
+                    {
+                        return Forbid();
+                    }
+                }
             }
 
             return Ok(reservation);
@@ -165,13 +185,23 @@ public class ReservationsController : BaseController
                 return Unauthorized(new { message = "Usuario no autenticado" });
             }
 
-            // Validar que el usuario tenga permiso para crear reservas en la empresa
+            // Validar que el usuario tenga permiso para crear reservas en las empresas especificadas
             if (!IsSuperAdmin())
             {
-                var empresaId = GetCurrentEmpresaId();
-                if (empresaId == null || empresaId != request.Empresa_Id)
+                var userRole = GetCurrentUserRole();
+                var userEmpresaId = GetCurrentEmpresaId();
+                
+                // Solo Clientes pueden crear reservas
+                if (userRole != "Cliente")
                 {
-                    return Forbid();
+                    return Forbid("Solo clientes pueden crear reservas");
+                }
+                
+                // Verificar que el cliente intenta crear su propia reserva
+                var cliente = await _clienteRepository.GetByUsuarioIdAsync(GetCurrentUserId());
+                if (cliente?.Id != request.Cliente_Id)
+                {
+                    return Forbid("No puedes crear reservas para otros clientes");
                 }
             }
 
@@ -226,9 +256,27 @@ public class ReservationsController : BaseController
                 return NotFound(new { message = "Reserva no encontrada" });
             }
 
-            if (!IsSuperAdmin() && reservation.Empresa_Id != GetCurrentEmpresaId())
+            // Verificar que el usuario tiene acceso
+            var userRole = GetCurrentUserRole();
+            if (userRole == "Cliente")
             {
-                return Forbid();
+                var cliente = await _clienteRepository.GetByUsuarioIdAsync(GetCurrentUserId());
+                if (cliente?.Id != reservation.Cliente_Id)
+                {
+                    return Forbid();
+                }
+            }
+            else if (userRole == "Empresa" && !IsSuperAdmin())
+            {
+                // Solo empresas con detalles en la reserva pueden actualizarla
+                var empresaId = GetCurrentEmpresaId();
+                if (empresaId.HasValue && reservation.Detalles != null)
+                {
+                    if (!reservation.Detalles.Any(d => d.Empresa_Id == empresaId.Value))
+                    {
+                        return Forbid();
+                    }
+                }
             }
 
             var resultado = await _reservationService.UpdateReservationStatusAsync(id, request, userId);
@@ -274,9 +322,27 @@ public class ReservationsController : BaseController
                 return NotFound(new { message = "Reserva no encontrada" });
             }
 
-            if (!IsSuperAdmin() && reservation.Empresa_Id != GetCurrentEmpresaId())
+            // Verificar que el usuario tiene acceso
+            var userRole = GetCurrentUserRole();
+            if (userRole == "Cliente")
             {
-                return Forbid();
+                var cliente = await _clienteRepository.GetByUsuarioIdAsync(GetCurrentUserId());
+                if (cliente?.Id != reservation.Cliente_Id)
+                {
+                    return Forbid();
+                }
+            }
+            else if (userRole == "Empresa" && !IsSuperAdmin())
+            {
+                // Solo empresas con detalles en la reserva pueden cancelarla
+                var empresaId = GetCurrentEmpresaId();
+                if (empresaId.HasValue && reservation.Detalles != null)
+                {
+                    if (!reservation.Detalles.Any(d => d.Empresa_Id == empresaId.Value))
+                    {
+                        return Forbid();
+                    }
+                }
             }
 
             var resultado = await _reservationService.CancelReservationAsync(

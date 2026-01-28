@@ -17,6 +17,7 @@ public class LogisticaController : BaseController
 {
     private readonly EvidenciaEntregaRepository _evidenciaRepository;
     private readonly ReservaRepository _reservaRepository;
+    private readonly DetalleReservaRepository _detalleReservaRepository;
     private readonly IFileStorageService _fileStorageService;
     private readonly ILogger<LogisticaController> _logger;
     private const string EVIDENCIAS_FOLDER = "evidencias";
@@ -30,6 +31,7 @@ public class LogisticaController : BaseController
             ?? throw new InvalidOperationException("Connection string not found");
         _evidenciaRepository = new EvidenciaEntregaRepository(connectionString);
         _reservaRepository = new ReservaRepository(connectionString);
+        _detalleReservaRepository = new DetalleReservaRepository(connectionString);
         _fileStorageService = fileStorageService;
         _logger = logger;
     }
@@ -85,10 +87,21 @@ public class LogisticaController : BaseController
                 return NotFound(new { message = "Reserva no encontrada" });
             }
 
-            // Validar multi-tenant
-            if (!IsSuperAdmin() && reserva.Empresa_Id != GetCurrentEmpresaId())
+            // MultiVendedor: Obtener empresa(s) de los detalles
+            var detalles = (await _detalleReservaRepository.GetByReservaIdAsync(request.ReservaId)).ToList();
+            if (!detalles.Any())
             {
-                return Forbid();
+                return BadRequest(new { message = "La reserva no tiene detalles" });
+            }
+
+            // Validar que el usuario (empresa) está en los detalles si no es SuperAdmin
+            if (!IsSuperAdmin())
+            {
+                var empresaId = GetCurrentEmpresaId();
+                if (empresaId.HasValue && !detalles.Any(d => d.Empresa_Id == empresaId.Value))
+                {
+                    return Forbid();
+                }
             }
 
             // Guardar archivo
@@ -101,11 +114,18 @@ public class LogisticaController : BaseController
                     EVIDENCIAS_FOLDER);
             }
 
+            // MultiVendedor: Obtener empresa de los detalles (usar la primera como referencia)
+            var detallesEvidencia = detalles.FirstOrDefault();
+            if (detallesEvidencia == null)
+            {
+                return BadRequest(new { message = "La reserva no tiene detalles de empresa" });
+            }
+
             // Crear evidencia en BD
             var evidencia = new EvidenciaEntrega
             {
                 Reserva_Id = request.ReservaId,
-                Empresa_Id = reserva.Empresa_Id, // Asegurar multi-tenancy
+                Empresa_Id = detallesEvidencia.Empresa_Id, // Usar empresa del primer detalle
                 Usuario_Id = GetCurrentUserId(),
                 Tipo = request.Tipo,
                 Url_Imagen = urlImagen,
@@ -164,20 +184,33 @@ public class LogisticaController : BaseController
                 return NotFound(new { message = "Reserva no encontrada" });
             }
 
-            // Validar multi-tenant
-            if (!IsSuperAdmin() && reserva.Empresa_Id != GetCurrentEmpresaId())
+            // MultiVendedor: Obtener empresa(s) de los detalles
+            var detalles = (await _detalleReservaRepository.GetByReservaIdAsync(reservaId)).ToList();
+            if (!detalles.Any() && !IsSuperAdmin())
             {
-                return Forbid();
+                return NotFound(new { message = "La reserva no tiene detalles" });
             }
 
-            var empresaId = GetCurrentEmpresaId();
-            if (empresaId == null && !IsSuperAdmin())
+            // Validar que el usuario (empresa) está en los detalles si no es SuperAdmin
+            if (!IsSuperAdmin())
+            {
+                var empresaId = GetCurrentEmpresaId();
+                if (empresaId.HasValue && !detalles.Any(d => d.Empresa_Id == empresaId.Value))
+                {
+                    return Forbid();
+                }
+            }
+
+            var empresaIdTemp = GetCurrentEmpresaId();
+            if (empresaIdTemp == null && !IsSuperAdmin())
             {
                 return BadRequest(new { message = "Empresa no válida" });
             }
 
+            // MultiVendedor: Para GetWithDetailsAsync, usar la primera empresa en los detalles o SuperAdmin
+            var empresaIdFiltro = IsSuperAdmin() ? (detalles.FirstOrDefault()?.Empresa_Id ?? 0) : empresaIdTemp!.Value;
             var evidencias = await _evidenciaRepository.GetWithDetailsAsync(
-                empresaId ?? reserva.Empresa_Id, 
+                empresaIdFiltro, 
                 reservaId);
 
             return Ok(evidencias);
@@ -244,10 +277,21 @@ public class LogisticaController : BaseController
                 return NotFound(new { message = "Reserva no encontrada" });
             }
 
-            // Validar multi-tenant
-            if (!IsSuperAdmin() && reserva.Empresa_Id != GetCurrentEmpresaId())
+            // MultiVendedor: Obtener empresa(s) de los detalles
+            var detalles = (await _detalleReservaRepository.GetByReservaIdAsync(reservaId)).ToList();
+            if (!detalles.Any() && !IsSuperAdmin())
             {
-                return Forbid();
+                return NotFound(new { message = "La reserva no tiene detalles" });
+            }
+
+            // Validar que el usuario (empresa) está en los detalles si no es SuperAdmin
+            if (!IsSuperAdmin())
+            {
+                var empresaId = GetCurrentEmpresaId();
+                if (empresaId.HasValue && !detalles.Any(d => d.Empresa_Id == empresaId.Value))
+                {
+                    return Forbid();
+                }
             }
 
             // Validar estado de la reserva (debe estar Confirmado o En_Alistamiento)

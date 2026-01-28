@@ -13,13 +13,16 @@ public class PagoController : BaseController
 {
     private readonly TransaccionPagoRepository _transaccionRepo;
     private readonly ReservaRepository _reservaRepo;
+    private readonly DetalleReservaRepository _detalleReservaRepository;
 
     public PagoController(
         TransaccionPagoRepository transaccionRepo,
-        ReservaRepository reservaRepo)
+        ReservaRepository reservaRepo,
+        DetalleReservaRepository detalleReservaRepository)
     {
         _transaccionRepo = transaccionRepo;
         _reservaRepo = reservaRepo;
+        _detalleReservaRepository = detalleReservaRepository;
     }
 
     [HttpGet("reserva/{reservaId}")]
@@ -27,13 +30,19 @@ public class PagoController : BaseController
     {
         try
         {
-            // Verificar que la reserva pertenece a la empresa del usuario
+            // Verificar que la reserva existe
             var reserva = await _reservaRepo.GetByIdAsync(reservaId);
             if (reserva == null)
                 return NotFound(new { message = "Reserva no encontrada" });
 
-            if (!IsSuperAdmin() && reserva.Empresa_Id != GetCurrentEmpresaId())
-                return Forbid();
+            // MultiVendedor: Verificar acceso a través de detalles
+            if (!IsSuperAdmin())
+            {
+                var empresaId = GetCurrentEmpresaId();
+                var detalles = (await _detalleReservaRepository.GetByReservaIdAsync(reservaId)).ToList();
+                if (!detalles.Any(d => d.Empresa_Id == empresaId))
+                    return Forbid();
+            }
 
             var transacciones = await _transaccionRepo.GetByReservaIdAsync(reservaId);
             return Ok(transacciones);
@@ -49,13 +58,19 @@ public class PagoController : BaseController
     {
         try
         {
-            // Verificar que la reserva pertenece a la empresa del usuario
+            // Verificar que la reserva existe
             var reserva = await _reservaRepo.GetByIdAsync(reservaId);
             if (reserva == null)
                 return NotFound(new { message = "Reserva no encontrada" });
 
-            if (!IsSuperAdmin() && reserva.Empresa_Id != GetCurrentEmpresaId())
-                return Forbid();
+            // MultiVendedor: Verificar acceso a través de detalles
+            if (!IsSuperAdmin())
+            {
+                var empresaId = GetCurrentEmpresaId();
+                var detalles = (await _detalleReservaRepository.GetByReservaIdAsync(reservaId)).ToList();
+                if (!detalles.Any(d => d.Empresa_Id == empresaId))
+                    return Forbid();
+            }
 
             var resumen = await _transaccionRepo.GetResumenPagosAsync(reservaId);
             return Ok(resumen);
@@ -96,13 +111,19 @@ public class PagoController : BaseController
     {
         try
         {
-            // Verificar que la reserva existe y pertenece a la empresa
+            // Verificar que la reserva existe
             var reserva = await _reservaRepo.GetByIdAsync(request.Reserva_Id);
             if (reserva == null)
                 return NotFound(new { message = "Reserva no encontrada" });
 
-            if (!IsSuperAdmin() && reserva.Empresa_Id != GetCurrentEmpresaId())
-                return Forbid();
+            // MultiVendedor: Verificar acceso a través de detalles
+            if (!IsSuperAdmin())
+            {
+                var empresaId = GetCurrentEmpresaId();
+                var detalles = (await _detalleReservaRepository.GetByReservaIdAsync(request.Reserva_Id)).ToList();
+                if (!detalles.Any(d => d.Empresa_Id == empresaId))
+                    return Forbid();
+            }
 
             // Validar que no se pague más del total
             var totalPagado = await _transaccionRepo.GetTotalPagadoAsync(request.Reserva_Id);
@@ -148,13 +169,19 @@ public class PagoController : BaseController
             if (transaccion == null)
                 return NotFound(new { message = "Transacción no encontrada" });
 
-            // Verificar que la reserva pertenece a la empresa
+            // Verificar que la reserva existe
             var reserva = await _reservaRepo.GetByIdAsync(transaccion.Reserva_Id);
             if (reserva == null)
                 return NotFound(new { message = "Reserva no encontrada" });
 
-            if (!IsSuperAdmin() && reserva.Empresa_Id != GetCurrentEmpresaId())
-                return Forbid();
+            // MultiVendedor: Verificar acceso a través de detalles
+            if (!IsSuperAdmin())
+            {
+                var empresaId = GetCurrentEmpresaId();
+                var detalles = (await _detalleReservaRepository.GetByReservaIdAsync(transaccion.Reserva_Id)).ToList();
+                if (!detalles.Any(d => d.Empresa_Id == empresaId))
+                    return Forbid();
+            }
 
             await _transaccionRepo.DeleteAsync(id);
 
@@ -180,13 +207,19 @@ public class PagoController : BaseController
             if (transaccion == null)
                 return NotFound(new { message = "Transacción no encontrada" });
 
-            // Verificar que la reserva pertenece a la empresa
+            // Verificar que la reserva existe
             var reserva = await _reservaRepo.GetByIdAsync(transaccion.Reserva_Id);
             if (reserva == null)
                 return NotFound(new { message = "Reserva no encontrada" });
 
-            if (!IsSuperAdmin() && reserva.Empresa_Id != GetCurrentEmpresaId())
-                return Forbid();
+            // MultiVendedor: Verificar acceso a través de detalles
+            if (!IsSuperAdmin())
+            {
+                var empresaId = GetCurrentEmpresaId();
+                var detalles = (await _detalleReservaRepository.GetByReservaIdAsync(transaccion.Reserva_Id)).ToList();
+                if (!detalles.Any(d => d.Empresa_Id == empresaId))
+                    return Forbid();
+            }
 
             return Ok(transaccion);
         }

@@ -13,13 +13,16 @@ public class CotizacionController : BaseController
 {
     private readonly ReservaRepository _reservaRepo;
     private readonly ClienteRepository _clienteRepo;
+    private readonly DetalleReservaRepository _detalleReservaRepository;
 
     public CotizacionController(
         ReservaRepository reservaRepo,
-        ClienteRepository clienteRepo)
+        ClienteRepository clienteRepo,
+        DetalleReservaRepository detalleReservaRepository)
     {
         _reservaRepo = reservaRepo;
         _clienteRepo = clienteRepo;
+        _detalleReservaRepository = detalleReservaRepository;
     }
 
     [HttpGet]
@@ -110,7 +113,6 @@ public class CotizacionController : BaseController
 
             var cotizacion = new Reserva
             {
-                Empresa_Id = IsSuperAdmin() ? cliente.Empresa_Id : empresaId,
                 Cliente_Id = request.Cliente_Id,
                 Codigo_Reserva = codigoCotizacion,
                 Estado = "Solicitado",
@@ -138,6 +140,9 @@ public class CotizacionController : BaseController
             var id = await _reservaRepo.AddAsync(cotizacion);
             cotizacion.Id = id;
 
+            // MultiVendedor: La empresa se define en DetalleReserva cuando se agrega items
+            // Se puede opcionalmente crear un detalle base aquí si es necesario
+
             return CreatedAtAction(nameof(GetById), new { id }, cotizacion);
         }
         catch (Exception ex)
@@ -159,9 +164,14 @@ public class CotizacionController : BaseController
             if (cotizacion.Estado != "Solicitado" || cotizacion.Fecha_Vencimiento_Cotizacion == null)
                 return BadRequest(new { message = "Esta reserva no es una cotización" });
 
-            // Verificar permisos multi-tenant
-            if (!IsSuperAdmin() && cotizacion.Empresa_Id != GetCurrentEmpresaId())
-                return Forbid();
+            // MultiVendedor: Verificar permisos a través de detalles
+            if (!IsSuperAdmin())
+            {
+                var empresaId = GetCurrentEmpresaId();
+                var detalles = (await _detalleReservaRepository.GetByReservaIdAsync(id)).ToList();
+                if (!detalles.Any(d => d.Empresa_Id == empresaId))
+                    return Forbid();
+            }
 
             // Actualizar campos
             cotizacion.Fecha_Evento = request.Fecha_Evento;
@@ -201,9 +211,14 @@ public class CotizacionController : BaseController
             if (cotizacion.Estado != "Solicitado" || cotizacion.Fecha_Vencimiento_Cotizacion == null)
                 return BadRequest(new { message = "Esta reserva no es una cotización" });
 
-            // Verificar permisos multi-tenant
-            if (!IsSuperAdmin() && cotizacion.Empresa_Id != GetCurrentEmpresaId())
-                return Forbid();
+            // MultiVendedor: Verificar permisos a través de detalles
+            if (!IsSuperAdmin())
+            {
+                var empresaId = GetCurrentEmpresaId();
+                var detalles = (await _detalleReservaRepository.GetByReservaIdAsync(request.Cotizacion_Id)).ToList();
+                if (!detalles.Any(d => d.Empresa_Id == empresaId))
+                    return Forbid();
+            }
 
             // Verificar que no esté vencida
             if (cotizacion.Fecha_Vencimiento_Cotizacion < DateTime.Now)
@@ -246,9 +261,14 @@ public class CotizacionController : BaseController
             if (cotizacion.Estado != "Solicitado" || cotizacion.Fecha_Vencimiento_Cotizacion == null)
                 return BadRequest(new { message = "Esta reserva no es una cotización" });
 
-            // Verificar permisos multi-tenant
-            if (!IsSuperAdmin() && cotizacion.Empresa_Id != GetCurrentEmpresaId())
-                return Forbid();
+            // MultiVendedor: Verificar permisos a través de detalles
+            if (!IsSuperAdmin())
+            {
+                var empresaId = GetCurrentEmpresaId();
+                var detalles = (await _detalleReservaRepository.GetByReservaIdAsync(request.Cotizacion_Id)).ToList();
+                if (!detalles.Any(d => d.Empresa_Id == empresaId))
+                    return Forbid();
+            }
 
             if (request.Dias_Extension <= 0 || request.Dias_Extension > 90)
                 return BadRequest(new { message = "Los días de extensión deben estar entre 1 y 90" });
@@ -285,9 +305,14 @@ public class CotizacionController : BaseController
             if (cotizacion.Estado != "Solicitado" || cotizacion.Fecha_Vencimiento_Cotizacion == null)
                 return BadRequest(new { message = "Esta reserva no es una cotización" });
 
-            // Verificar permisos multi-tenant
-            if (!IsSuperAdmin() && cotizacion.Empresa_Id != GetCurrentEmpresaId())
-                return Forbid();
+            // MultiVendedor: Verificar permisos a través de detalles
+            if (!IsSuperAdmin())
+            {
+                var empresaId = GetCurrentEmpresaId();
+                var detalles = (await _detalleReservaRepository.GetByReservaIdAsync(id)).ToList();
+                if (!detalles.Any(d => d.Empresa_Id == empresaId))
+                    return Forbid();
+            }
 
             await _reservaRepo.DeleteAsync(id);
 
