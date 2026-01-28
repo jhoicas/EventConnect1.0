@@ -6,7 +6,7 @@ namespace EventConnect.Domain.Entities;
 public class Reserva
 {
     public int Id { get; set; }
-    public int Empresa_Id { get; set; }
+    // Eliminado: Empresa_Id - Ahora se define a nivel de Detalle_Reserva para soporte multivendedor
     public int Cliente_Id { get; set; }
     public string Codigo_Reserva { get; set; } = string.Empty;
     public string Estado { get; set; } = "Solicitado";
