@@ -87,6 +87,7 @@ builder.Services.AddHealthChecks()
 builder.Services.AddScoped<IUsuarioRepository>(_ => new UsuarioRepository(connectionString));
 builder.Services.AddScoped<IContenidoLandingRepository>(_ => new ContenidoLandingRepository(connectionString));
 builder.Services.AddScoped<IConfiguracionSistemaRepository>(_ => new ConfiguracionSistemaRepository(connectionString));
+builder.Services.AddScoped<IServicioRepository>(_ => new ServicioRepository(connectionString));
 
 // TODO: Crear interfaces para los siguientes repositorios y registrar con DI
 builder.Services.AddScoped(_ => new ProductoRepository(connectionString));
