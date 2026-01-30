@@ -7,7 +7,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace EventConnect.API.Controllers;
 
 [ApiController]
-[Route("api/Cotizacion")]
+[Route("api/solicitudes-cotizacion")]
 [Authorize]
 public class SolicitudCotizacionController : BaseController
 {
