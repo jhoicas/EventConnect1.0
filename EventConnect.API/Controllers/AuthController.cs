@@ -69,11 +69,22 @@ public class AuthController : BaseController
     {
         try
         {
+            // Validar modelo
+            if (!ModelState.IsValid)
+            {
+                var errors = ModelState.Values
+                    .SelectMany(v => v.Errors)
+                    .Select(e => e.ErrorMessage)
+                    .ToList();
+                return BadRequest(new { message = "Datos inválidos", errors });
+            }
+
+            // Validaciones adicionales
             if (string.IsNullOrWhiteSpace(request.Usuario) || 
                 string.IsNullOrWhiteSpace(request.Email) || 
                 string.IsNullOrWhiteSpace(request.Password))
             {
-                return BadRequest(new { message = "Todos los campos son requeridos" });
+                return BadRequest(new { message = "Todos los campos obligatorios son requeridos" });
             }
 
             if (request.Password.Length < 6)
@@ -81,20 +92,30 @@ public class AuthController : BaseController
                 return BadRequest(new { message = "La contraseña debe tener al menos 6 caracteres" });
             }
 
+            // Validar formato de email
+            if (!System.Text.RegularExpressions.Regex.IsMatch(request.Email, @"^[^@\s]+@[^@\s]+\.[^@\s]+$"))
+            {
+                return BadRequest(new { message = "El formato del email no es válido" });
+            }
+
             var response = await _authService.RegisterAsync(request);
             
             if (response == null)
             {
-                return BadRequest(new { message = "El usuario o email ya existe" });
+                return BadRequest(new { message = "El nombre de usuario o email ya está registrado" });
             }
 
             _logger.LogInformation("Registro exitoso para usuario: {Username}", request.Usuario);
-            return Ok(response);
+            return Ok(new 
+            { 
+                message = "Usuario registrado exitosamente",
+                data = response
+            });
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error en registro para usuario: {Username}", request.Usuario);
-            return StatusCode(500, new { message = "Error interno del servidor" });
+            return StatusCode(500, new { message = "Error interno del servidor", error = ex.Message });
         }
     }
 
@@ -217,12 +238,23 @@ public class AuthController : BaseController
     {
         try
         {
+            // Validar modelo
+            if (!ModelState.IsValid)
+            {
+                var errors = ModelState.Values
+                    .SelectMany(v => v.Errors)
+                    .Select(e => e.ErrorMessage)
+                    .ToList();
+                return BadRequest(new { message = "Datos inválidos", errors });
+            }
+
+            // Validaciones adicionales
             if (string.IsNullOrWhiteSpace(request.Email) || 
                 string.IsNullOrWhiteSpace(request.Password) ||
                 string.IsNullOrWhiteSpace(request.Nombre_Completo) ||
                 string.IsNullOrWhiteSpace(request.Documento))
             {
-                return BadRequest(new { message = "Todos los campos obligatorios son requeridos" });
+                return BadRequest(new { message = "Todos los campos obligatorios son requeridos: Email, Contraseña, Nombre Completo y Documento" });
             }
 
             if (request.Password.Length < 6)
@@ -230,20 +262,56 @@ public class AuthController : BaseController
                 return BadRequest(new { message = "La contraseña debe tener al menos 6 caracteres" });
             }
 
+            // Validar formato de email
+            if (!System.Text.RegularExpressions.Regex.IsMatch(request.Email, @"^[^@\s]+@[^@\s]+\.[^@\s]+$"))
+            {
+                return BadRequest(new { message = "El formato del email no es válido" });
+            }
+
+            // Validar tipo de cliente
+            if (request.Tipo_Cliente != "Persona" && request.Tipo_Cliente != "Empresa")
+            {
+                return BadRequest(new { message = "El tipo de cliente debe ser 'Persona' o 'Empresa'" });
+            }
+
+            // Validar tipo de documento
+            var tiposDocumentoValidos = new[] { "CC", "CE", "NIT", "PP" };
+            if (!tiposDocumentoValidos.Contains(request.Tipo_Documento))
+            {
+                return BadRequest(new { message = "El tipo de documento debe ser CC, CE, NIT o PP" });
+            }
+
             var response = await _authService.RegisterClienteAsync(request);
             
             if (response == null)
             {
-                return BadRequest(new { message = "El email o documento ya existe" });
+                return BadRequest(new { message = "El email o documento ya está registrado en el sistema" });
             }
 
-            _logger.LogInformation("Registro de cliente exitoso para email: {Email}", request.Email);
-            return Ok(response);
+            _logger.LogInformation("Registro de cliente exitoso para email: {Email}, Tipo: {Tipo}", request.Email, request.Tipo_Cliente);
+            
+            // Mensaje diferente según tipo de cliente
+            if (request.Tipo_Cliente == "Persona")
+            {
+                return Ok(new
+                {
+                    message = "Registro exitoso. Bienvenido a EventConnect.",
+                    data = response
+                });
+            }
+            else
+            {
+                return Ok(new
+                {
+                    message = "Registro exitoso. Tu cuenta de empresa está pendiente de aprobación. Te notificaremos cuando sea activada.",
+                    data = response
+                });
+            }
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error en registro de cliente para email: {Email}", request.Email);
-            return StatusCode(500, new { message = "Error interno del servidor" });
+            return StatusCode(500, new { message = "Error interno del servidor", error = ex.Message });
         }
     }
 }

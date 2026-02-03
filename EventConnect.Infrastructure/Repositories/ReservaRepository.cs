@@ -288,7 +288,7 @@ public class ReservaRepository : RepositoryBase<Reserva>
         var sql = @"
             SELECT 
                 r.*,
-                c.Nombre_Completo as Cliente_Nombre,
+                c.Nombre as Cliente_Nombre,
                 c.Email as Cliente_Email,
                 c.Telefono as Cliente_Telefono,
                 u.Nombre_Completo as Creado_Por_Nombre,
@@ -322,7 +322,7 @@ public class ReservaRepository : RepositoryBase<Reserva>
         var sql = @"
             SELECT 
                 r.*,
-                c.Nombre_Completo as Cliente_Nombre,
+                c.Nombre as Cliente_Nombre,
                 c.Email as Cliente_Email,
                 c.Telefono as Cliente_Telefono,
                 u.Nombre_Completo as Creado_Por_Nombre,
@@ -358,7 +358,7 @@ public class ReservaRepository : RepositoryBase<Reserva>
         var sql = @"
             SELECT 
                 r.*,
-                c.Nombre_Completo as Cliente_Nombre,
+                c.Nombre as Cliente_Nombre,
                 c.Email as Cliente_Email,
                 c.Telefono as Cliente_Telefono,
                 u.Nombre_Completo as Creado_Por_Nombre,
