@@ -69,7 +69,7 @@ CREATE TABLE Usuario (
 -- Tabla: Cliente (Clientes finales de las empresas)
 CREATE TABLE Cliente (
     Id INT PRIMARY KEY AUTO_INCREMENT,
-    Empresa_Id INT NOT NULL COMMENT 'Empresa proveedora que gestiona este cliente',
+    Empresa_Id INT NULL COMMENT 'Empresa proveedora que gestiona este cliente. NULL para clientes persona sin empresa',
     Tipo_Cliente ENUM('Persona', 'Empresa') NOT NULL,
     Nombre VARCHAR(150) NOT NULL,
     Documento VARCHAR(50) NOT NULL,

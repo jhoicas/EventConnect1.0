@@ -110,7 +110,7 @@ CREATE TRIGGER update_usuario_updated_at BEFORE UPDATE ON Usuario
 -- Tabla: Cliente (Clientes finales de las empresas)
 CREATE TABLE Cliente (
     Id SERIAL PRIMARY KEY,
-    Empresa_Id INTEGER NOT NULL,
+    Empresa_Id INTEGER NULL,
     Usuario_Id INTEGER NULL,
     Tipo_Cliente VARCHAR(20) NOT NULL CHECK (Tipo_Cliente IN ('Persona', 'Empresa')),
     Nombre VARCHAR(150) NOT NULL,
@@ -135,7 +135,7 @@ CREATE TABLE Cliente (
 );
 
 COMMENT ON TABLE Cliente IS 'Clientes finales de las empresas';
-COMMENT ON COLUMN Cliente.Empresa_Id IS 'Empresa proveedora que gestiona este cliente';
+COMMENT ON COLUMN Cliente.Empresa_Id IS 'Empresa proveedora que gestiona este cliente. NULL para clientes persona sin empresa asociada';
 COMMENT ON COLUMN Cliente.Rating IS 'Calificación del cliente (1-5)';
 COMMENT ON COLUMN Cliente.Contacto_Nombre IS 'Persona de contacto si es empresa';
 
