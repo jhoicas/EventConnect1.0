@@ -141,11 +141,15 @@ public class AuthService : IAuthService
         if (existingEmail != null)
             return null;
 
+        // Asignar valores por defecto si son null
+        var empresaId = request.Empresa_Id ?? 1; // Empresa por defecto: 1
+        var rolId = request.Rol_Id ?? 3; // Rol por defecto: 3 (Cliente)
+
         // Crear nuevo usuario
         var usuario = new Usuario
         {
-            Empresa_Id = request.Empresa_Id,
-            Rol_Id = request.Rol_Id,
+            Empresa_Id = empresaId,
+            Rol_Id = rolId,
             Usuario1 = request.Usuario,
             Email = request.Email,
             Password_Hash = HashPassword(request.Password),

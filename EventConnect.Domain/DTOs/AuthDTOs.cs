@@ -57,11 +57,10 @@ public class RegisterRequest
     [Phone(ErrorMessage = "El formato del teléfono no es válido")]
     public string? Telefono { get; set; }
     
-    [Required(ErrorMessage = "El ID de empresa es requerido")]
     [Range(1, int.MaxValue, ErrorMessage = "El ID de empresa debe ser mayor a 0")]
-    public int Empresa_Id { get; set; }
+    public int? Empresa_Id { get; set; }
     
-    public int Rol_Id { get; set; } = 3; // Cliente por defecto
+    public int? Rol_Id { get; set; } // Si es null, se asigna el rol por defecto
 }
 
 public class UpdateProfileRequest
