@@ -281,6 +281,12 @@ public class AuthController : BaseController
                 return BadRequest(new { message = "El tipo de documento debe ser CC, CE, NIT o PP" });
             }
 
+            // Validar empresa_Id solo para tipo Empresa
+            if (request.Tipo_Cliente == "Empresa" && (!request.Empresa_Id.HasValue || request.Empresa_Id <= 0))
+            {
+                return BadRequest(new { message = "El ID de empresa es requerido y debe ser mayor a 0 para clientes tipo Empresa" });
+            }
+
             var response = await _authService.RegisterClienteAsync(request);
             
             if (response == null)

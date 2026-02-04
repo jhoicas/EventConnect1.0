@@ -6,7 +6,7 @@ namespace EventConnect.Domain.Entities;
 public class Cliente
 {
     public int Id { get; set; }
-    public int Empresa_Id { get; set; }
+    public int? Empresa_Id { get; set; }
     public int? Usuario_Id { get; set; }
     public string Tipo_Cliente { get; set; } = "Persona";
     public string Nombre { get; set; } = string.Empty;

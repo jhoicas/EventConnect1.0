@@ -231,10 +231,22 @@ public class AuthService : IAuthService
             }
 
             // 2. Verificar si el documento ya existe
-            var existingDoc = await connection.QueryFirstOrDefaultAsync<Cliente>(
-                "SELECT * FROM Cliente WHERE Documento = @Documento AND Empresa_Id = @EmpresaId",
-                new { Documento = request.Documento, EmpresaId = request.Empresa_Id },
-                transaction);
+            string docCheckSql;
+            object docCheckParams;
+            
+            if (request.Empresa_Id.HasValue)
+            {
+                docCheckSql = "SELECT * FROM Cliente WHERE Documento = @Documento AND Empresa_Id = @EmpresaId";
+                docCheckParams = new { Documento = request.Documento, EmpresaId = request.Empresa_Id };
+            }
+            else
+            {
+                // Para personas sin empresa, solo verificar documento (sin filtrar por empresa)
+                docCheckSql = "SELECT * FROM Cliente WHERE Documento = @Documento AND Empresa_Id IS NULL";
+                docCheckParams = new { Documento = request.Documento };
+            }
+            
+            var existingDoc = await connection.QueryFirstOrDefaultAsync<Cliente>(docCheckSql, docCheckParams, transaction);
             
             if (existingDoc != null)
             {
