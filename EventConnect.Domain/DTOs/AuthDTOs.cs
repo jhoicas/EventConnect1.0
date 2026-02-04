@@ -98,7 +98,6 @@ public class RegisterClienteRequest
     public string? Telefono { get; set; }
     
     // Datos de Cliente
-    [Range(1, int.MaxValue, ErrorMessage = "El ID de empresa debe ser mayor a 0")]
     public int? Empresa_Id { get; set; }
     
     [Required(ErrorMessage = "El tipo de cliente es requerido")]

@@ -241,7 +241,7 @@ public class AuthService : IAuthService
             }
             else
             {
-                // Para personas sin empresa, solo verificar documento (sin filtrar por empresa)
+                // Para clientes sin empresa_Id, verificar documento sin filtrar por empresa
                 docCheckSql = "SELECT * FROM Cliente WHERE Documento = @Documento AND Empresa_Id IS NULL";
                 docCheckParams = new { Documento = request.Documento };
             }
@@ -254,7 +254,32 @@ public class AuthService : IAuthService
                 return null;
             }
 
-            // 3. Crear el usuario con Rol_Id = 4 (Cliente)
+            // 3. Si es tipo Empresa y no tiene empresa_Id, crear la empresa primero
+            int? empresaId = request.Empresa_Id;
+            
+            if (request.Tipo_Cliente == "Empresa" && !empresaId.HasValue)
+            {
+                var empresaSql = @"
+                    INSERT INTO Empresa (Razon_Social, NIT, Email, Telefono, Direccion, Ciudad, 
+                                        Pais, Estado, Fecha_Registro, Fecha_Actualizacion)
+                    VALUES (@RazonSocial, @NIT, @Email, @Telefono, @Direccion, @Ciudad, 
+                            'Colombia', 'Activa', @FechaRegistro, @FechaActualizacion)
+                    RETURNING id;";
+                
+                empresaId = await connection.ExecuteScalarAsync<int>(empresaSql, new
+                {
+                    RazonSocial = request.Nombre_Completo,
+                    NIT = request.Documento,
+                    Email = request.Email,
+                    Telefono = request.Telefono,
+                    Direccion = request.Direccion,
+                    Ciudad = request.Ciudad,
+                    FechaRegistro = DateTime.Now,
+                    FechaActualizacion = DateTime.Now
+                }, transaction);
+            }
+
+            // 4. Crear el usuario con Rol_Id = 4 (Cliente)
             // Estado: Activo para Personas, Inactivo para Empresas (requieren aprobación)
             var estadoInicial = request.Tipo_Cliente == "Persona" ? "Activo" : "Inactivo";
             
@@ -268,7 +293,7 @@ public class AuthService : IAuthService
             
             var usuarioId = await connection.ExecuteScalarAsync<int>(usuarioSql, new
             {
-                EmpresaId = request.Empresa_Id,
+                EmpresaId = empresaId,
                 Email = request.Email,
                 PasswordHash = HashPassword(request.Password),
                 NombreCompleto = request.Nombre_Completo,
@@ -278,7 +303,7 @@ public class AuthService : IAuthService
                 FechaActualizacion = DateTime.Now
             }, transaction);
 
-            // 4. Crear el perfil de cliente vinculado al usuario
+            // 5. Crear el perfil de cliente vinculado al usuario
             var clienteSql = @"
                 INSERT INTO Cliente (Empresa_Id, Usuario_Id, Tipo_Cliente, Nombre, Documento, Tipo_Documento,
                                     Email, Telefono, Direccion, Ciudad, Rating, Total_Alquileres, 
@@ -289,7 +314,7 @@ public class AuthService : IAuthService
             
             await connection.ExecuteAsync(clienteSql, new
             {
-                EmpresaId = request.Empresa_Id,
+                EmpresaId = empresaId,
                 UsuarioId = usuarioId,
                 TipoCliente = request.Tipo_Cliente,
                 Nombre = request.Nombre_Completo,
@@ -305,7 +330,7 @@ public class AuthService : IAuthService
 
             await transaction.CommitAsync();
 
-            // 5. Generar respuesta según tipo de cliente
+            // 6. Generar respuesta según tipo de cliente
             if (request.Tipo_Cliente == "Persona")
             {
                 // Para personas: login automático
