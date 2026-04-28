@@ -133,6 +133,28 @@ builder.Services.AddScoped<IFileStorageService, LocalFileStorageService>();
 // Validation services
 builder.Services.AddScoped<IDetalleReservaValidacionService, DetalleReservaValidacionService>();
 
+// Auditoría Service
+builder.Services.AddScoped<IAuditoriaService>(_ => new AuditoriaService(builder.Configuration));
+
+// Daños Service
+builder.Services.AddScoped<IDanioService>(_ => new DanioService(builder.Configuration, 
+    builder.Services.BuildServiceProvider().GetRequiredService<IAuditoriaService>()));
+
+// Alertas Service
+builder.Services.AddScoped<IAlertaService>(_ => new AlertaService(builder.Configuration, 
+    builder.Services.BuildServiceProvider().GetRequiredService<IAuditoriaService>()));
+
+// Portal Cliente Service
+builder.Services.AddScoped<IClientePortalService>(_ => new ClientePortalService(builder.Configuration, 
+    builder.Services.BuildServiceProvider().GetRequiredService<IAuditoriaService>()));
+
+// Dashboard Service
+builder.Services.AddScoped<IDashboardService>(_ => new DashboardService(builder.Configuration));
+
+// Auditoría Helper para controllers
+builder.Services.AddScoped<AuditoriaHelper>();
+builder.Services.AddHttpContextAccessor();
+
 // Configure Swagger
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>

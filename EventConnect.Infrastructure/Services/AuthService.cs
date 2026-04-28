@@ -678,4 +678,88 @@ public class AuthService : IAuthService
             throw new InvalidOperationException($"Error al actualizar perfil: {ex.Message}", ex);
         }
     }
+
+    public async Task<EmpresaRegistroResponse?> RegisterEmpresaAsync(RegisterEmpresaRequest request)
+    {
+        using var connection = new NpgsqlConnection(_connectionString);
+        await connection.OpenAsync();
+        using var transaction = await connection.BeginTransactionAsync();
+
+        try
+        {
+            // Verificar si el NIT ya existe
+            var existingNIT = await connection.QueryFirstOrDefaultAsync<dynamic>(
+                "SELECT * FROM Empresa WHERE NIT = @NIT",
+                new { request.NIT },
+                transaction);
+
+            if (existingNIT != null)
+            {
+                await transaction.RollbackAsync();
+                return null;
+            }
+
+            // Verificar si el email ya existe
+            var existingEmail = await connection.QueryFirstOrDefaultAsync<dynamic>(
+                "SELECT * FROM Empresa WHERE Email = @Email",
+                new { request.Email },
+                transaction);
+
+            if (existingEmail != null)
+            {
+                await transaction.RollbackAsync();
+                return null;
+            }
+
+            // Crear la empresa
+            var empresaSql = @"
+                INSERT INTO Empresa (Razon_Social, NIT, Email, Telefono, Direccion, Ciudad, 
+                                    Pais, Estado, Fecha_Registro, Fecha_Actualizacion)
+                VALUES (@RazonSocial, @NIT, @Email, @Telefono, @Direccion, @Ciudad, 
+                        @Pais, 'Activa', @FechaRegistro, @FechaActualizacion)
+                RETURNING id, Razon_Social, NIT, Email, Telefono, Direccion, Ciudad, Pais, Estado, Fecha_Registro;";
+
+            var nuevaEmpresa = await connection.QueryFirstOrDefaultAsync<dynamic>(empresaSql, new
+            {
+                request.Razon_Social,
+                request.NIT,
+                request.Email,
+                request.Telefono,
+                request.Direccion,
+                request.Ciudad,
+                request.Pais,
+                FechaRegistro = DateTime.Now,
+                FechaActualizacion = DateTime.Now
+            }, transaction);
+
+            await transaction.CommitAsync();
+
+            if (nuevaEmpresa == null)
+            {
+                throw new InvalidOperationException("Error al crear la empresa");
+            }
+
+            var id = (int)(GetValue(nuevaEmpresa, "id") ?? GetValue(nuevaEmpresa, "Id") ?? 0);
+
+            return new EmpresaRegistroResponse
+            {
+                Id = id,
+                Razon_Social = GetValue(nuevaEmpresa, "razon_social")?.ToString() ?? GetValue(nuevaEmpresa, "Razon_Social")?.ToString() ?? "",
+                NIT = GetValue(nuevaEmpresa, "nit")?.ToString() ?? GetValue(nuevaEmpresa, "NIT")?.ToString() ?? "",
+                Email = GetValue(nuevaEmpresa, "email")?.ToString() ?? GetValue(nuevaEmpresa, "Email")?.ToString() ?? "",
+                Telefono = GetValue(nuevaEmpresa, "telefono")?.ToString() ?? GetValue(nuevaEmpresa, "Telefono")?.ToString(),
+                Direccion = GetValue(nuevaEmpresa, "direccion")?.ToString() ?? GetValue(nuevaEmpresa, "Direccion")?.ToString(),
+                Ciudad = GetValue(nuevaEmpresa, "ciudad")?.ToString() ?? GetValue(nuevaEmpresa, "Ciudad")?.ToString(),
+                Pais = GetValue(nuevaEmpresa, "pais")?.ToString() ?? GetValue(nuevaEmpresa, "Pais")?.ToString() ?? "Colombia",
+                Estado = GetValue(nuevaEmpresa, "estado")?.ToString() ?? GetValue(nuevaEmpresa, "Estado")?.ToString() ?? "Activa",
+                Fecha_Registro = DateTime.Parse(GetValue(nuevaEmpresa, "fecha_registro")?.ToString() ?? GetValue(nuevaEmpresa, "Fecha_Registro")?.ToString() ?? DateTime.Now.ToString()),
+                Message = "Empresa registrada exitosamente. Ahora puede registrar usuarios administradores."
+            };
+        }
+        catch (Exception ex)
+        {
+            await transaction.RollbackAsync();
+            throw new InvalidOperationException($"Error al registrar empresa: {ex.Message}", ex);
+        }
+    }
 }

@@ -115,3 +115,43 @@ public class RegisterClienteRequest
     public string? Direccion { get; set; }
     public string? Ciudad { get; set; }
 }
+
+public class RegisterEmpresaRequest
+{
+    [Required(ErrorMessage = "La razón social es requerida")]
+    [MinLength(3, ErrorMessage = "La razón social debe tener al menos 3 caracteres")]
+    public string Razon_Social { get; set; } = string.Empty;
+    
+    [Required(ErrorMessage = "El NIT es requerido")]
+    [MinLength(8, ErrorMessage = "El NIT debe tener al menos 8 caracteres")]
+    public string NIT { get; set; } = string.Empty;
+    
+    [Required(ErrorMessage = "El email es requerido")]
+    [EmailAddress(ErrorMessage = "El formato del email no es válido")]
+    public string Email { get; set; } = string.Empty;
+    
+    [Phone(ErrorMessage = "El formato del teléfono no es válido")]
+    public string? Telefono { get; set; }
+    
+    public string? Direccion { get; set; }
+    
+    public string? Ciudad { get; set; }
+    
+    public string Pais { get; set; } = "Colombia";
+}
+
+public class EmpresaRegistroResponse
+{
+    public int Id { get; set; }
+    public string Razon_Social { get; set; } = string.Empty;
+    public string NIT { get; set; } = string.Empty;
+    public string Email { get; set; } = string.Empty;
+    public string? Telefono { get; set; }
+    public string? Direccion { get; set; }
+    public string? Ciudad { get; set; }
+    public string Pais { get; set; } = string.Empty;
+    public string Estado { get; set; } = "Activa";
+    public DateTime Fecha_Registro { get; set; }
+    public string Message { get; set; } = string.Empty;
+}
+

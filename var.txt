@@ -1,0 +1,11 @@
+ASPNETCORE__ENVIRONMENT:Development
+ASPNETCORE__URLS:http://+:8080
+ConnectionStrings__EventConnectConnection:Host=c7itisjfjj8ril.cluster-czrs8kj4isg7.us-east-1.rds.amazonaws.com;Port=5432;Database=d21i4sul1k9fam;Username=uecct3vhln2750;Password=pa6b7d86f527f2bc8b418feadd03667970f779c77b3d79787ff9e3242b4417a6c;SslMode=Require
+JwtSettings__Secret:r0CPFzLaX8ENTwDdyQxoRA4IiC0KfQH7tw4Mh4wveayZu5FOfMxeMY6gR8P12O0JtX7Ch5KcRadYYX5+WRtIbg==
+JwtSettings_Issuer:EventConnect
+JwtSettings_Audience:EventConnectClients
+JwtSettings__TokenExpirationMinutes:60
+JwtSettings__RefreshTokenExpirationDays:7
+AllowedCorsOrigins__0:https://eventconnect-qihii.ondigitalocean.app
+EnableSwagger:True
+

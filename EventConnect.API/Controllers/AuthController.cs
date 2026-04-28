@@ -62,6 +62,59 @@ public class AuthController : BaseController
     }
 
     /// <summary>
+    /// Registrar nueva empresa (paso 1 del flujo de registro)
+    /// </summary>
+    [HttpPost("register-empresa")]
+    public async Task<IActionResult> RegisterEmpresa([FromBody] RegisterEmpresaRequest request)
+    {
+        try
+        {
+            // Validar modelo
+            if (!ModelState.IsValid)
+            {
+                var errors = ModelState.Values
+                    .SelectMany(v => v.Errors)
+                    .Select(e => e.ErrorMessage)
+                    .ToList();
+                return BadRequest(new { message = "Datos inválidos", errors });
+            }
+
+            // Validaciones adicionales
+            if (string.IsNullOrWhiteSpace(request.Razon_Social) || 
+                string.IsNullOrWhiteSpace(request.NIT) || 
+                string.IsNullOrWhiteSpace(request.Email))
+            {
+                return BadRequest(new { message = "La razón social, NIT y email son requeridos" });
+            }
+
+            // Validar formato de email
+            if (!System.Text.RegularExpressions.Regex.IsMatch(request.Email, @"^[^@\s]+@[^@\s]+\.[^@\s]+$"))
+            {
+                return BadRequest(new { message = "El formato del email no es válido" });
+            }
+
+            var response = await _authService.RegisterEmpresaAsync(request);
+            
+            if (response == null)
+            {
+                return BadRequest(new { message = "El NIT o email ya está registrado en el sistema" });
+            }
+
+            _logger.LogInformation("Empresa registrada exitosamente: {RazonSocial} (NIT: {NIT})", request.Razon_Social, request.NIT);
+            return Ok(new 
+            { 
+                message = "Empresa registrada exitosamente",
+                data = response
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error en registro de empresa: {RazonSocial}", request.Razon_Social);
+            return StatusCode(500, new { message = "Error interno del servidor", error = ex.Message });
+        }
+    }
+
+    /// <summary>
     /// Registrar nuevo usuario
     /// </summary>
     [HttpPost("register")]
